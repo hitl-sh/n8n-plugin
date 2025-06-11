@@ -9,6 +9,7 @@ import { NodeConnectionType } from 'n8n-workflow';
 export class HitlNode implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'HITL Platform',
+		icon: 'file:hitl.svg',
 		name: 'hitlNode',
 		group: ['transform'],
 		version: 1,
