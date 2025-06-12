@@ -7,7 +7,7 @@ import {
 
 export class HitlCredentialsApi implements ICredentialType {
 	name = 'hitlCredentialsApi';
-	displayName = 'HITL Platform API';
+	displayName = 'Hitl Credentials API';
 	documentationUrl = 'https://github.com/hitl-sh/n8n-plugin?tab=readme-ov-file';
 	properties: INodeProperties[] = [
 		{

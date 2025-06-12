@@ -19,7 +19,7 @@ export class HitlNode implements INodeType {
 		},
 		credentials: [
 			{
-				name: 'HitlCredentialsApi',
+				name: 'hitlCredentialsApi',
 				required: true,
 			},
 		],
