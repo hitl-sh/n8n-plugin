@@ -1,6 +1,6 @@
 import {
 	IAuthenticateGeneric,
-	ICredentialTestRequest,
+	// ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
@@ -30,10 +30,10 @@ export class HitlCredentialsApi implements ICredentialType {
 			},
 		},
 	};
-	test: ICredentialTestRequest = {
-		request: {
-			baseURL: '={{$credentials?.domain}}',
-			url: '/bearer',
-		},
-	};
+	// test: ICredentialTestRequest = {
+	// 	request: {
+	// 		baseURL: '={{$credentials?.domain}}',
+	// 		url: '/bearer',
+	// 	},
+	// };
 }
