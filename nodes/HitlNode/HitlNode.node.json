@@ -1,0 +1,6 @@
+{
+  "categories": ["Communication", "HITL"],
+  "subcategories": {
+    "HITL": ["Human in the Loop"]
+  }
+}

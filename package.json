@@ -1,19 +1,19 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
   "version": "0.1.0",
-  "description": "n8n node that enables Human-in-the-Loop (HITL) workflows.",
+  "description": "n8n node for HITL Platform - create human-in-the-loop decision requests with webhook responses",
   "keywords": [
     "n8n-community-node-package"
   ],
   "license": "MIT",
-  "homepage": "",
+  "homepage": "https://hitl.sh",
   "author": {
-    "name": "Rex Asare",
-    "email": "rex.asare06@gmail.com"
+    "name": "HITL Platform",
+    "email": "support@hitl.sh"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/hitl-sh/n8n-plugin.git"
+    "url": "https://github.com/hitl-sh/n8n-nodes-hitl.git"
   },
   "engines": {
     "node": ">=20.15"
@@ -33,12 +33,10 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [
-      "dist/credentials/ExampleCredentialsApi.credentials.js",
-      "dist/credentials/HttpBinApi.credentials.js"
+      "dist/credentials/HitlCredentialsApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/ExampleNode/ExampleNode.node.js",
-      "dist/nodes/HttpBin/HttpBin.node.js"
+      "dist/nodes/HitlNode/HitlNode.node.js"
     ]
   },
   "devDependencies": {
@@ -50,7 +48,7 @@
     "typescript": "^5.8.2"
   },
   "peerDependencies": {
-    "n8n-workflow": "*"
+    "n8n-workflow": "^1.107.0"
   },
   "dependencies": {
     "uuid": "^11.1.0"
