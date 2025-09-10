@@ -6,10 +6,10 @@ import type {
 	INodeTypeDescription,
 	IHttpRequestOptions,
 	INodePropertyOptions,
-	IWebhookFunctions,
-	IWebhookResponseData,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
+
+
 
 export class HitlNode implements INodeType {
 	description: INodeTypeDescription = {
@@ -31,16 +31,6 @@ export class HitlNode implements INodeType {
 		inputs: ['main'],
 		outputs: ['main'],
 		usableAsTool: true,
-		webhooks: [
-			{
-				name: 'default',
-				httpMethod: 'POST',
-				responseMode: 'onReceived',
-				path: 'hitl-response',
-				limitWaitTime: true, // Enable timeout
-				resumeUnit: 'seconds',
-			},
-		],
 		properties: [
 			{
 				displayName: 'Operation',
@@ -52,11 +42,13 @@ export class HitlNode implements INodeType {
 						name: 'Send',
 						value: 'send',
 						description: 'Send request and return immediately',
+						action: 'Send request and return immediately',
 					},
 					{
 						name: 'Send and Wait',
 						value: 'sendAndWait',
 						description: 'Send request and wait for human response',
+						action: 'Send request and wait for human response',
 					},
 				],
 				default: 'sendAndWait',
@@ -136,7 +128,6 @@ export class HitlNode implements INodeType {
 				name: 'context',
 				type: 'json',
 				default: '{}',
-				required: false,
 				description: 'Optional additional context data for the request (JSON format)',
 				typeOptions: {
 					rows: 3,
@@ -238,7 +229,7 @@ export class HitlNode implements INodeType {
 
 					const response = await this.helpers.httpRequest(options);
 
-					if (response.error === false && response.data && response.data.loops) {
+					if (!response.error && response.data && response.data.loops) {
 						return response.data.loops.map((loop: any) => ({
 							name: `${loop.name} (${loop.member_count || 0} members)${loop.description ? ' - ' + loop.description : ''}`,
 							value: loop.id,
@@ -258,7 +249,7 @@ export class HitlNode implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		for (let i = 0; i < items.length; i++) {
-			// Declare variables outside try block for error handling
+			// Note: If multiple input items, the throw will pause after processing the first. Consider single-item use or refactor for batching.
 			let responseType = '';
 			let responseConfig: any = {};
 			let responseOptions = '';
@@ -267,6 +258,7 @@ export class HitlNode implements INodeType {
 
 			try {
 				// Get parameters
+				const operation = this.getNodeParameter('operation', i) as string;
 				const loopId = this.getNodeParameter('loopId', i) as string;
 				const processingType = this.getNodeParameter('processingType', i) as string;
 				const contentType = this.getNodeParameter('contentType', i) as string;
@@ -292,9 +284,6 @@ export class HitlNode implements INodeType {
 				const ratingMax =
 					responseType === 'rating' ? (this.getNodeParameter('ratingMax', i) as number) : 5;
 
-				// Get operation parameter
-				const operation = this.getNodeParameter('operation', i) as string;
-
 				// Validate inputs
 				let parsedContext;
 				try {
@@ -306,7 +295,6 @@ export class HitlNode implements INodeType {
 					);
 				}
 
-				// Validate required fields
 				if (!loopId) {
 					throw new NodeOperationError(this.getNode(), 'Loop selection is required');
 				}
@@ -320,12 +308,6 @@ export class HitlNode implements INodeType {
 						this.getNode(),
 						'Image URL is required when content type is image',
 					);
-				}
-
-				// Operation-based validation
-				if (operation === 'sendAndWait') {
-					// For sendAndWait, we'll use n8n's built-in webhook system
-					// The webhook URL will be generated automatically by n8n
 				}
 
 				// Build response config - web portal compatible format
@@ -408,9 +390,6 @@ export class HitlNode implements INodeType {
 						required: true,
 					};
 				}
-
-				// For now, we'll create without callback and let user poll separately
-				// Future versions can implement webhook pattern
 
 				// Format default response to match expected format
 				formattedDefaultResponse = defaultResponse;
@@ -539,21 +518,11 @@ export class HitlNode implements INodeType {
 					platform_version: '1.0.0',
 				};
 
-				// For sendAndWait operation, use n8n's resume webhook pattern
-				if (operation === 'sendAndWait') {
-					// Use the resume webhook pattern like n8n's Wait node
-					const executionId = this.getExecutionId();
-					const baseUrl = 'https://833ae1ffe9df.ngrok-free.app';
-					const webhookUrl = `${baseUrl}/webhook-waiting/${executionId}`;
-					payload.callback_url = webhookUrl;
-				}
-
 				// Only include optional fields if they have values
 				if (contentType === 'image' && imageUrl && imageUrl.trim()) {
 					payload.image_url = imageUrl.trim();
 				}
 
-				// Include optional fields
 				if (context && context.trim() && context.trim() !== '{}') {
 					payload.context = parsedContext;
 				}
@@ -561,6 +530,9 @@ export class HitlNode implements INodeType {
 				if (processingType === 'time-sensitive' && timeoutSeconds) {
 					payload.timeout_seconds = timeoutSeconds;
 				}
+
+				// For sendAndWait, we'll use polling instead of webhooks
+				// Don't include callback_url - we'll poll for completion
 
 				// Make API request
 				const credentials = await this.getCredentials('hitlCredentialsApi');
@@ -584,85 +556,139 @@ export class HitlNode implements INodeType {
 					);
 				}
 
-				const requestId = response.data.request_id;
-
-				// Return request creation result with webhook information
-				const responseData: any = {
-					request_id: requestId,
-					status: response.data.status,
-					processing_type: response.data.processing_type,
-					priority: response.data.priority,
-					timeout_at: response.data.timeout_at,
-					broadcasted_to: response.data.broadcasted_to,
-					notifications_sent: response.data.notifications_sent,
-					polling_url: response.data.polling_url,
-					operation: operation,
-				};
-
-				if (operation === 'sendAndWait') {
-					responseData.message =
-						'Request created successfully. Workflow will wait for human response.';
-					responseData.instructions =
-						'This workflow will continue when a human provides their response.';
-				} else {
-					responseData.message = 'Request created successfully.';
-					responseData.instructions = 'Request created and workflow completed.';
-				}
-
-				// Add debug information
-				responseData.debug_payload_sent = {
-					response_type: responseType,
-					response_config: responseConfig,
-					response_options_input:
-						responseType === 'single_select' || responseType === 'multi_select'
-							? responseOptions
-							: undefined,
-					default_response_original: defaultResponse,
-					default_response_formatted: formattedDefaultResponse,
-					available_options: responseConfig.options || [],
-					operation: operation,
-				};
-
-				// For sendAndWait operation, use n8n's resume webhook system
-				if (operation === 'sendAndWait') {
-					responseData.message = 'Request created successfully. Waiting for human response.';
-					responseData.instructions =
-						'This workflow will continue when a human provides their response.';
-
-					// Put execution to wait - this registers the /webhook-waiting/{executionId} endpoint
-					await this.putExecutionToWait(new Date(Date.now() + 3600 * 1000)); // Wait up to 1 hour
-
-					// Execution resumes here when webhook is called
-					// Get the webhook data that resumed the execution
-					const resumeData = this.getInputData();
-					const webhookResponse = resumeData[0]?.json || {};
-
-					// Handle the response
-					if (!webhookResponse || Object.keys(webhookResponse).length === 0) {
-						responseData.webhook_response = {
-							response: formattedDefaultResponse,
-							status: 'timed_out',
-						};
-						responseData.message = 'Request timed out, using default response';
-						responseData.status = 'timed_out';
-					} else {
-						responseData.webhook_response = webhookResponse;
-						responseData.status = webhookResponse.status || 'completed';
-						responseData.message = 'Request completed with human response';
+				// Handle operations
+				if (operation === 'send') {
+					// For 'send', return creation details immediately
+					const responseData: any = {
+						request_id: response.data.request_id,
+						status: response.data.status,
+						processing_type: response.data.processing_type,
+						priority: response.data.priority,
+						timeout_at: response.data.timeout_at,
+						broadcasted_to: response.data.broadcasted_to,
+						notifications_sent: response.data.notifications_sent,
+						polling_url: response.data.polling_url,
+						message: 'Request created successfully.',
+						instructions: 'Request created and workflow completed.',
+					};
+					returnData.push({ json: responseData });
+				} else if (operation === 'sendAndWait') {
+					// For 'sendAndWait' - use polling instead of webhooks
+					const requestId = response.data.request_id;
+					let pollingUrl = response.data.polling_url;
+					
+					if (!pollingUrl) {
+						// Construct polling URL if not provided
+						pollingUrl = `${credentials.baseUrl}/v1/api/requests/${requestId}`;
 					}
-				} else {
-					responseData.message = 'Request created successfully.';
-					responseData.instructions = 'Request created and workflow completed.';
+					
+					// Ensure polling URL is absolute
+					if (!pollingUrl.startsWith('http')) {
+						pollingUrl = `${credentials.baseUrl}${pollingUrl.startsWith('/') ? '' : '/'}${pollingUrl}`;
+					}
+					
+					// Poll for completion with timeout
+					const maxWaitTime = processingType === 'time-sensitive' ? timeoutSeconds * 1000 : 3600000; // 1 hour default
+					const pollInterval = 5000; // 5 seconds
+					const startTime = Date.now();
+					
+					let hitlResponse: any = null;
+					let isCompleted = false;
+					
+					while (!isCompleted && (Date.now() - startTime) < maxWaitTime) {
+						// Wait before polling using a simple delay
+						const endTime = Date.now() + pollInterval;
+						while (Date.now() < endTime) {
+							// Simple busy wait for delay
+							await new Promise(resolve => resolve(null));
+						}
+						
+						try {
+							const pollOptions: IHttpRequestOptions = {
+								method: 'GET',
+								url: pollingUrl,
+								headers: {
+									Authorization: `Bearer ${credentials.apiKey}`,
+									'Content-Type': 'application/json',
+								},
+								json: true,
+							};
+							
+							hitlResponse = await this.helpers.httpRequest(pollOptions);
+							
+							if (hitlResponse.error) {
+								throw new NodeOperationError(
+									this.getNode(),
+									`Polling error: ${hitlResponse.msg || 'Unknown error'}`
+								);
+							}
+							
+							const status = hitlResponse.data?.request?.status || hitlResponse.data?.status;
+							
+							// Check for completed status - be more permissive with status values
+							if (status === 'completed' || status === 'answered' || status === 'resolved' || 
+								status === 'failed' || status === 'timeout' || status === 'cancelled') {
+								isCompleted = true;
+							}
+							
+							// Also check if there's a response_data field indicating completion
+							const responseData = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data;
+							if (responseData !== undefined && responseData !== null) {
+								isCompleted = true;
+							}
+							
+						} catch (pollError: any) {
+							// Continue polling on transient errors, but log them
+							if ((Date.now() - startTime) >= maxWaitTime - pollInterval) {
+								// If we're near timeout, throw the error
+								throw new NodeOperationError(
+									this.getNode(),
+									`Polling failed: ${pollError.message}`
+								);
+							}
+							// Otherwise continue polling
+						}
+					}
+					
+					if (!isCompleted) {
+						// Timeout - use default response
+						hitlResponse = {
+							data: {
+								status: 'timeout',
+								response: formattedDefaultResponse,
+								message: 'Request timed out, using default response'
+							}
+						};
+					}
+					
+					const finalStatus = hitlResponse.data?.request?.status || hitlResponse.data?.status || 'completed';
+					const finalResponse = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data || formattedDefaultResponse;
+					const responseBy = hitlResponse.data?.request?.response_by_user;
+					
+					const responseData: any = {
+						request_id: requestId,
+						status: finalStatus,
+						response: finalResponse,
+						response_by: responseBy,
+						response_time_seconds: hitlResponse.data?.request?.response_time_seconds,
+						message: hitlResponse.data?.msg || 'Request completed via polling',
+						polling_used: true,
+						polling_duration_ms: Date.now() - startTime,
+						full_response: hitlResponse.data?.request || hitlResponse.data,
+						original_request: {
+							processing_type: response.data.processing_type,
+							priority: response.data.priority,
+							timeout_at: response.data.timeout_at,
+							broadcasted_to: response.data.broadcasted_to,
+							notifications_sent: response.data.notifications_sent,
+							polling_url: response.data.polling_url,
+						}
+					};
+					returnData.push({ json: responseData });
 				}
-
-				returnData.push({
-					json: responseData,
-				});
 			} catch (error: any) {
-				// Enhanced error handling for debugging
+				// Enhanced error handling
 				let errorMessage = error.message;
-
-				// If it's an HTTP error, try to get more details
 				if (error.response?.data) {
 					try {
 						const apiError = error.response.data;
@@ -671,28 +697,12 @@ export class HitlNode implements INodeType {
 						errorMessage += ` | API Response: ${error.response.data}`;
 					}
 				}
-
 				if (error.response?.status) {
 					errorMessage = `HTTP ${error.response.status}: ${errorMessage}`;
 				}
 
 				if (this.continueOnFail()) {
-					returnData.push({
-						json: {
-							error: errorMessage,
-							debug_payload_sent: {
-								response_type: responseType,
-								response_config: responseConfig,
-								response_options_input:
-									responseType === 'single_select' || responseType === 'multi_select'
-										? responseOptions
-										: undefined,
-								default_response_original: defaultResponse,
-								default_response_formatted: formattedDefaultResponse,
-								available_options: responseConfig.options || [],
-							},
-						},
-					});
+					returnData.push({ json: { error: errorMessage } });
 					continue;
 				}
 				throw new NodeOperationError(this.getNode(), errorMessage);
@@ -700,29 +710,5 @@ export class HitlNode implements INodeType {
 		}
 
 		return [returnData];
-	}
-
-	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const bodyData = this.getBodyData();
-
-		// Validate webhook data
-		if (!bodyData.request_id || !bodyData.response) {
-			throw new NodeOperationError(
-				this.getNode(),
-				'Invalid webhook data: request_id and response are required',
-			);
-		}
-
-		// Format the response to include only relevant data
-		const responseData = {
-			request_id: bodyData.request_id,
-			response: bodyData.response,
-			status: bodyData.status || 'completed',
-			timestamp: new Date().toISOString(),
-		};
-
-		return {
-			workflowData: [this.helpers.returnJsonArray([responseData])],
-		};
 	}
 }

@@ -25,7 +25,7 @@ export class HitlCredentialsApi implements ICredentialType {
 			displayName: 'Base URL',
 			name: 'baseUrl',
 			type: 'string',
-			default: 'https://b0ec3bfdcc8d.ngrok-free.app',
+			default: 'https://3fbcd9cba4b6.ngrok-free.app',
 			description: 'The base URL of your HITL API instance',
 		},
 	];
