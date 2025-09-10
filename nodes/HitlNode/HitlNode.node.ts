@@ -18,7 +18,7 @@ export class HitlNode implements INodeType {
 		name: 'hitlNode',
 		group: ['transform'],
 		version: 1,
-		description: 'Create human-in-the-loop decision requests and wait for responses',
+		description: 'Create human-in-the-loop decision requests and wait for human responses',
 		defaults: {
 			name: 'HITL Platform',
 		},
@@ -32,27 +32,6 @@ export class HitlNode implements INodeType {
 		outputs: ['main'],
 		usableAsTool: true,
 		properties: [
-			{
-				displayName: 'Operation',
-				name: 'operation',
-				type: 'options',
-				noDataExpression: true,
-				options: [
-					{
-						name: 'Send',
-						value: 'send',
-						description: 'Send request and return immediately',
-						action: 'Send request and return immediately',
-					},
-					{
-						name: 'Send and Wait',
-						value: 'sendAndWait',
-						description: 'Send request and wait for human response',
-						action: 'Send request and wait for human response',
-					},
-				],
-				default: 'sendAndWait',
-			},
 			{
 				displayName: 'Loop Name or ID',
 				name: 'loopId',
@@ -258,7 +237,6 @@ export class HitlNode implements INodeType {
 
 			try {
 				// Get parameters
-				const operation = this.getNodeParameter('operation', i) as string;
 				const loopId = this.getNodeParameter('loopId', i) as string;
 				const processingType = this.getNodeParameter('processingType', i) as string;
 				const contentType = this.getNodeParameter('contentType', i) as string;
@@ -531,8 +509,7 @@ export class HitlNode implements INodeType {
 					payload.timeout_seconds = timeoutSeconds;
 				}
 
-				// For sendAndWait, we'll use polling instead of webhooks
-				// Don't include callback_url - we'll poll for completion
+				// All requests use polling - no callback_url needed
 
 				// Make API request
 				const credentials = await this.getCredentials('hitlCredentialsApi');
@@ -556,54 +533,45 @@ export class HitlNode implements INodeType {
 					);
 				}
 
-				// Handle operations
-				if (operation === 'send') {
-					// For 'send', return creation details immediately
-					const responseData: any = {
-						request_id: response.data.request_id,
-						status: response.data.status,
-						processing_type: response.data.processing_type,
-						priority: response.data.priority,
-						timeout_at: response.data.timeout_at,
-						broadcasted_to: response.data.broadcasted_to,
-						notifications_sent: response.data.notifications_sent,
-						polling_url: response.data.polling_url,
-						message: 'Request created successfully.',
-						instructions: 'Request created and workflow completed.',
-					};
-					returnData.push({ json: responseData });
-				} else if (operation === 'sendAndWait') {
-					// For 'sendAndWait' - use polling instead of webhooks
-					const requestId = response.data.request_id;
-					let pollingUrl = response.data.polling_url;
-					
-					if (!pollingUrl) {
-						// Construct polling URL if not provided
-						pollingUrl = `${credentials.baseUrl}/v1/api/requests/${requestId}`;
+				// All requests wait for human response via polling
+				const requestId = response.data.request_id;
+				let pollingUrl = response.data.polling_url;
+				
+				if (!pollingUrl) {
+					// Construct polling URL if not provided
+					pollingUrl = `${credentials.baseUrl}/v1/api/requests/${requestId}`;
+				}
+				
+				// Ensure polling URL is absolute
+				if (!pollingUrl.startsWith('http')) {
+					pollingUrl = `${credentials.baseUrl}${pollingUrl.startsWith('/') ? '' : '/'}${pollingUrl}`;
+				}
+				
+				// Poll until backend marks request as completed or timeout
+				// Backend handles timeout logic for time-sensitive requests
+				const pollInterval = 5000; // 5 seconds
+				const startTime = Date.now();
+				let pollCount = 0;
+				
+				// Track waiting status for user feedback
+				
+				let hitlResponse: any = null;
+				let isCompleted = false;
+				
+				// Poll indefinitely - backend will handle timeouts
+				while (!isCompleted) {
+					// Wait before polling using a simple delay
+					const endTime = Date.now() + pollInterval;
+					while (Date.now() < endTime) {
+						// Simple busy wait for delay
+						await new Promise(resolve => resolve(null));
 					}
 					
-					// Ensure polling URL is absolute
-					if (!pollingUrl.startsWith('http')) {
-						pollingUrl = `${credentials.baseUrl}${pollingUrl.startsWith('/') ? '' : '/'}${pollingUrl}`;
-					}
+					pollCount++;
 					
-					// Poll for completion with timeout
-					const maxWaitTime = processingType === 'time-sensitive' ? timeoutSeconds * 1000 : 3600000; // 1 hour default
-					const pollInterval = 5000; // 5 seconds
-					const startTime = Date.now();
+					// Track polling progress (we'll include this in the final response)
 					
-					let hitlResponse: any = null;
-					let isCompleted = false;
-					
-					while (!isCompleted && (Date.now() - startTime) < maxWaitTime) {
-						// Wait before polling using a simple delay
-						const endTime = Date.now() + pollInterval;
-						while (Date.now() < endTime) {
-							// Simple busy wait for delay
-							await new Promise(resolve => resolve(null));
-						}
-						
-						try {
+					try {
 							const pollOptions: IHttpRequestOptions = {
 								method: 'GET',
 								url: pollingUrl,
@@ -638,32 +606,23 @@ export class HitlNode implements INodeType {
 							}
 							
 						} catch (pollError: any) {
-							// Continue polling on transient errors, but log them
-							if ((Date.now() - startTime) >= maxWaitTime - pollInterval) {
-								// If we're near timeout, throw the error
-								throw new NodeOperationError(
-									this.getNode(),
-									`Polling failed: ${pollError.message}`
-								);
-							}
-							// Otherwise continue polling
+							// Continue polling on transient errors
+							// Backend will handle timeouts, so we don't give up on client side
+							// Just continue polling until backend returns completed/timeout status
 						}
 					}
 					
-					if (!isCompleted) {
-						// Timeout - use default response
-						hitlResponse = {
-							data: {
-								status: 'timeout',
-								response: formattedDefaultResponse,
-								message: 'Request timed out, using default response'
-							}
-						};
-					}
-					
+					// Extract response data with completion info
 					const finalStatus = hitlResponse.data?.request?.status || hitlResponse.data?.status || 'completed';
+					const totalElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
 					const finalResponse = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data || formattedDefaultResponse;
 					const responseBy = hitlResponse.data?.request?.response_by_user;
+					
+					const waitMessage = finalStatus === 'timeout' 
+						? `Request timed out after ${totalElapsedSeconds}s - using default response`
+						: finalStatus === 'completed' 
+							? `Human response received after ${totalElapsedSeconds}s`
+							: `Request ${finalStatus} after ${totalElapsedSeconds}s`;
 					
 					const responseData: any = {
 						request_id: requestId,
@@ -671,7 +630,13 @@ export class HitlNode implements INodeType {
 						response: finalResponse,
 						response_by: responseBy,
 						response_time_seconds: hitlResponse.data?.request?.response_time_seconds,
-						message: hitlResponse.data?.msg || 'Request completed via polling',
+						message: waitMessage,
+						wait_info: {
+							total_wait_time_seconds: totalElapsedSeconds,
+							polling_cycles: pollCount,
+							processing_type: processingType,
+							was_timeout: finalStatus === 'timeout'
+						},
 						polling_used: true,
 						polling_duration_ms: Date.now() - startTime,
 						full_response: hitlResponse.data?.request || hitlResponse.data,
@@ -685,7 +650,6 @@ export class HitlNode implements INodeType {
 						}
 					};
 					returnData.push({ json: responseData });
-				}
 			} catch (error: any) {
 				// Enhanced error handling
 				let errorMessage = error.message;
