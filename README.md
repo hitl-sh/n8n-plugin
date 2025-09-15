@@ -12,13 +12,7 @@ n8n community node for HITL (Human-in-the-Loop) Platform integration.
 
 ## Installation
 
-### In n8n:
-
-1. Go to Settings > Community Nodes
+1. Go to Settings > Community Nodes in your n8n instance
 2. Select "Install" 
 3. Enter `n8n-nodes-human-in-the-loop` in "Enter npm package name"
 4. Click "Install"
-
-### Manual Installation:
-
-1. Visit the [n8n-nodes-hitl GitHub Releases page](https://github.com/hitl-sh/n8n-nodes-hitl/releases)
