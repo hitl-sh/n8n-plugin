@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "n8n node for HITL Platform - create human-in-the-loop decision requests with webhook responses",
   "keywords": [
     "n8n-community-node-package"
@@ -50,7 +50,5 @@
   "peerDependencies": {
     "n8n-workflow": "^1.107.0"
   },
-  "dependencies": {
-    "uuid": "^11.1.0"
-  }
+  "dependencies": {}
 }

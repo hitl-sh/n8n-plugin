@@ -649,7 +649,10 @@ export class HitlNode implements INodeType {
 							polling_url: response.data.polling_url,
 						}
 					};
-					returnData.push({ json: responseData });
+					returnData.push({
+				json: responseData,
+				pairedItem: { item: i }
+			});
 			} catch (error: any) {
 				// Enhanced error handling
 				let errorMessage = error.message;
