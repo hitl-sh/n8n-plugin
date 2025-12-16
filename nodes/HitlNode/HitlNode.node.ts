@@ -33,11 +33,50 @@ export class HitlNode implements INodeType {
 		usableAsTool: true,
 		properties: [
 			{
+				displayName: 'Resource',
+				name: 'resource',
+				type: 'options',
+				noDataExpression: true,
+				options: [
+					{
+						name: 'Request',
+						value: 'request',
+					},
+				],
+				default: 'request',
+			},
+			{
+				displayName: 'Operation',
+				name: 'operation',
+				type: 'options',
+				noDataExpression: true,
+				displayOptions: {
+					show: {
+						resource: ['request'],
+					},
+				},
+				options: [
+					{
+						name: 'Send and Wait',
+						value: 'sendAndWait',
+						description: 'Create a request and wait for human response',
+						action: 'Send request and wait for response',
+					},
+				],
+				default: 'sendAndWait',
+			},
+			{
 				displayName: 'Loop Name or ID',
 				name: 'loopId',
 				type: 'options',
 				typeOptions: {
 					loadOptionsMethod: 'getLoops',
+				},
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+					},
 				},
 				required: true,
 				default: '',
@@ -48,6 +87,13 @@ export class HitlNode implements INodeType {
 				displayName: 'Processing Type',
 				name: 'processingType',
 				type: 'options',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+					},
+				},
+				required: true,
 				default: 'deferred',
 				options: [
 					{ name: 'Deferred', value: 'deferred' },
@@ -56,9 +102,34 @@ export class HitlNode implements INodeType {
 				description: 'Type of request processing',
 			},
 			{
+				displayName: 'Timeout (Seconds)',
+				name: 'timeoutSeconds',
+				type: 'number',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						processingType: ['time-sensitive'],
+					},
+				},
+				default: 600,
+				description: 'Timeout in seconds for time-sensitive requests (60-86400)',
+				typeOptions: {
+					minValue: 60,
+					maxValue: 86400,
+				},
+			},
+			{
 				displayName: 'Content Type',
 				name: 'contentType',
 				type: 'options',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+					},
+				},
+				required: true,
 				default: 'markdown',
 				options: [
 					{ name: 'Text/Markdown', value: 'markdown' },
@@ -67,22 +138,16 @@ export class HitlNode implements INodeType {
 				description: 'Type of content in the request',
 			},
 			{
-				displayName: 'Priority',
-				name: 'priority',
-				type: 'options',
-				default: 'medium',
-				options: [
-					{ name: 'Low', value: 'low' },
-					{ name: 'Medium', value: 'medium' },
-					{ name: 'High', value: 'high' },
-					{ name: 'Critical', value: 'critical' },
-				],
-				description: 'Priority level for the request',
-			},
-			{
 				displayName: 'Request Text',
 				name: 'requestText',
 				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						contentType: ['markdown'],
+					},
+				},
 				required: true,
 				default: '',
 				description: 'The question or task for the human to respond to',
@@ -94,44 +159,47 @@ export class HitlNode implements INodeType {
 				displayName: 'Image URL',
 				name: 'imageUrl',
 				type: 'string',
-				default: '',
-				description: 'URL of image to include with the request',
 				displayOptions: {
 					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
 						contentType: ['image'],
 					},
 				},
+				required: true,
+				default: '',
+				description: 'URL of image to include with the request',
 			},
 			{
-				displayName: 'Context',
-				name: 'context',
-				type: 'json',
-				default: '{}',
-				description: 'Optional additional context data for the request (JSON format)',
-				typeOptions: {
-					rows: 3,
-				},
-			},
-			{
-				displayName: 'Timeout (Seconds)',
-				name: 'timeoutSeconds',
-				type: 'number',
-				default: 600,
-				description: 'Timeout in seconds for time-sensitive requests (60-86400)',
+				displayName: 'Priority',
+				name: 'priority',
+				type: 'options',
 				displayOptions: {
 					show: {
-						processingType: ['time-sensitive'],
+						resource: ['request'],
+						operation: ['sendAndWait'],
 					},
 				},
-				typeOptions: {
-					minValue: 60,
-					maxValue: 86400,
-				},
+				required: true,
+				default: 'medium',
+				options: [
+					{ name: 'Low', value: 'low' },
+					{ name: 'Medium', value: 'medium' },
+					{ name: 'High', value: 'high' },
+					{ name: 'Critical', value: 'critical' },
+				],
+				description: 'Priority level for the request',
 			},
 			{
 				displayName: 'Response Type',
 				name: 'responseType',
 				type: 'options',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+					},
+				},
 				required: true,
 				default: 'text',
 				options: [
@@ -144,6 +212,45 @@ export class HitlNode implements INodeType {
 				],
 				description: 'Type of response expected from the human',
 			},
+		{
+				displayName: 'Default Response',
+				name: 'defaultResponse',
+				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+					},
+				},
+				required: true,
+				default: '',
+				description: 'Default response if request times out or fails',
+			},
+			{
+				displayName: 'Additional Fields',
+				name: 'additionalFields',
+				type: 'collection',
+				placeholder: 'Add Field',
+				default: {},
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+					},
+				},
+				options: [
+					{
+						displayName: 'Context',
+						name: 'context',
+						type: 'json',
+						default: '{}',
+						description: 'Optional additional context data for the request (JSON format)',
+						typeOptions: {
+							rows: 3,
+						},
+					},
+				],
+			},
 			{
 				displayName: 'Response Options',
 				name: 'responseOptions',
@@ -152,6 +259,8 @@ export class HitlNode implements INodeType {
 				description: 'Comma-separated options (e.g., "Yes,No,Maybe")',
 				displayOptions: {
 					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
 						responseType: ['single_select', 'multi_select'],
 					},
 				},
@@ -163,6 +272,8 @@ export class HitlNode implements INodeType {
 				default: 1,
 				displayOptions: {
 					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
 						responseType: ['rating'],
 					},
 				},
@@ -175,18 +286,12 @@ export class HitlNode implements INodeType {
 				default: 5,
 				displayOptions: {
 					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
 						responseType: ['rating'],
 					},
 				},
 				description: 'Maximum rating value',
-			},
-			{
-				displayName: 'Default Response',
-				name: 'defaultResponse',
-				type: 'string',
-				required: true,
-				default: '',
-				description: 'Default response if request times out or fails',
 			},
 		],
 	};
@@ -236,23 +341,30 @@ export class HitlNode implements INodeType {
 			let formattedDefaultResponse: any = '';
 
 			try {
-				// Get parameters
+				// Get required parameters
 				const loopId = this.getNodeParameter('loopId', i) as string;
 				const processingType = this.getNodeParameter('processingType', i) as string;
 				const contentType = this.getNodeParameter('contentType', i) as string;
 				const priority = this.getNodeParameter('priority', i) as string;
-				const requestText = this.getNodeParameter('requestText', i) as string;
-				const context = this.getNodeParameter('context', i) as string;
 				responseType = this.getNodeParameter('responseType', i) as string;
 				defaultResponse = this.getNodeParameter('defaultResponse', i) as string;
 
-				// Get conditional parameters only if needed
-				const imageUrl =
-					contentType === 'image' ? (this.getNodeParameter('imageUrl', i) as string) : '';
-				const timeoutSeconds =
-					processingType === 'time-sensitive'
-						? (this.getNodeParameter('timeoutSeconds', i) as number)
-						: 600;
+				// Get conditional parameters based on content type
+				const requestText = contentType === 'markdown'
+					? (this.getNodeParameter('requestText', i) as string)
+					: '';
+				const imageUrl = contentType === 'image'
+					? (this.getNodeParameter('imageUrl', i) as string)
+					: '';
+
+				// Get conditional timeout for time-sensitive requests
+				const timeoutSeconds = processingType === 'time-sensitive'
+					? (this.getNodeParameter('timeoutSeconds', i) as number)
+					: 600;
+
+				// Get additional fields
+				const additionalFields = this.getNodeParameter('additionalFields', i) as any;
+				const context = (additionalFields.context as string) || '{}';
 				responseOptions =
 					responseType === 'single_select' || responseType === 'multi_select'
 						? (this.getNodeParameter('responseOptions', i) as string)
@@ -536,28 +648,28 @@ export class HitlNode implements INodeType {
 				// All requests wait for human response via polling
 				const requestId = response.data.request_id;
 				let pollingUrl = response.data.polling_url;
-				
+
 				if (!pollingUrl) {
 					// Construct polling URL if not provided
 					pollingUrl = `${credentials.baseUrl}/v1/api/requests/${requestId}`;
 				}
-				
+
 				// Ensure polling URL is absolute
 				if (!pollingUrl.startsWith('http')) {
 					pollingUrl = `${credentials.baseUrl}${pollingUrl.startsWith('/') ? '' : '/'}${pollingUrl}`;
 				}
-				
+
 				// Poll until backend marks request as completed or timeout
 				// Backend handles timeout logic for time-sensitive requests
 				const pollInterval = 5000; // 5 seconds
 				const startTime = Date.now();
 				let pollCount = 0;
-				
+
 				// Track waiting status for user feedback
-				
+
 				let hitlResponse: any = null;
 				let isCompleted = false;
-				
+
 				// Poll indefinitely - backend will handle timeouts
 				while (!isCompleted) {
 					// Wait before polling using a simple delay
@@ -566,11 +678,11 @@ export class HitlNode implements INodeType {
 						// Simple busy wait for delay
 						await new Promise(resolve => resolve(null));
 					}
-					
+
 					pollCount++;
-					
+
 					// Track polling progress (we'll include this in the final response)
-					
+
 					try {
 							const pollOptions: IHttpRequestOptions = {
 								method: 'GET',
@@ -581,49 +693,49 @@ export class HitlNode implements INodeType {
 								},
 								json: true,
 							};
-							
+
 							hitlResponse = await this.helpers.httpRequest(pollOptions);
-							
+
 							if (hitlResponse.error) {
 								throw new NodeOperationError(
 									this.getNode(),
 									`Polling error: ${hitlResponse.msg || 'Unknown error'}`
 								);
 							}
-							
+
 							const status = hitlResponse.data?.request?.status || hitlResponse.data?.status;
-							
+
 							// Check for completed status - be more permissive with status values
-							if (status === 'completed' || status === 'answered' || status === 'resolved' || 
+							if (status === 'completed' || status === 'answered' || status === 'resolved' ||
 								status === 'failed' || status === 'timeout' || status === 'cancelled') {
 								isCompleted = true;
 							}
-							
+
 							// Also check if there's a response_data field indicating completion
 							const responseData = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data;
 							if (responseData !== undefined && responseData !== null) {
 								isCompleted = true;
 							}
-							
+
 						} catch (pollError: any) {
 							// Continue polling on transient errors
 							// Backend will handle timeouts, so we don't give up on client side
 							// Just continue polling until backend returns completed/timeout status
 						}
 					}
-					
+
 					// Extract response data with completion info
 					const finalStatus = hitlResponse.data?.request?.status || hitlResponse.data?.status || 'completed';
 					const totalElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
 					const finalResponse = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data || formattedDefaultResponse;
 					const responseBy = hitlResponse.data?.request?.response_by_user;
-					
-					const waitMessage = finalStatus === 'timeout' 
+
+					const waitMessage = finalStatus === 'timeout'
 						? `Request timed out after ${totalElapsedSeconds}s - using default response`
-						: finalStatus === 'completed' 
+						: finalStatus === 'completed'
 							? `Human response received after ${totalElapsedSeconds}s`
 							: `Request ${finalStatus} after ${totalElapsedSeconds}s`;
-					
+
 					const responseData: any = {
 						request_id: requestId,
 						status: finalStatus,
