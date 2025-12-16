@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "n8n node for HITL Platform - create human-in-the-loop decision requests with webhook responses",
   "keywords": [
     "n8n-community-node-package"
