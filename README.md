@@ -14,7 +14,10 @@ n8n community node for HITL (Human-in-the-Loop) Platform integration.
 
 **Important**: You must download and install the HITL Platform app to receive and respond to decision requests sent from n8n workflows.
 
-- Download the HITL app from [https://hitl.sh](https://hitl.sh)
+- Download the HITL app:
+  - [iOS - App Store](https://apps.apple.com/us/app/hitl-human-in-the-loop/id6752878072)
+  - [Android - Play Store](https://play.google.com/store/apps/details?id=hitl.sh.app)
+  - Or visit [https://hitl.sh](https://hitl.sh) for more information
 - Create an account and obtain your API key
 - Set up your decision loops in the HITL platform
 
