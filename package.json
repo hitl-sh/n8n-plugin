@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "n8n node for HITL Platform - create human-in-the-loop decision requests with webhook responses",
   "keywords": [
     "n8n-community-node-package"
@@ -8,8 +8,8 @@
   "license": "MIT",
   "homepage": "https://hitl.sh",
   "author": {
-    "name": "HITL - Human in the Loop",
-    "email": "support@hitl.sh"
+    "name": "Human Approval - HITL Platform",
+    "email": "team@hitl.sh"
   },
   "repository": {
     "type": "git",

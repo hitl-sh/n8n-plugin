@@ -13,14 +13,14 @@ import { NodeOperationError } from 'n8n-workflow';
 
 export class HitlNode implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'HITL Platform',
+		displayName: 'Human Approvals - HITL Platform',
 		icon: 'file:hitl.svg',
 		name: 'hitlNode',
 		group: ['transform'],
 		version: 1,
 		description: 'Create human-in-the-loop decision requests and wait for human responses',
 		defaults: {
-			name: 'HITL Platform',
+			name: 'Human Approvals - HITL Platform',
 		},
 		credentials: [
 			{
