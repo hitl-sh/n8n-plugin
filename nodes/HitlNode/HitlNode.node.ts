@@ -134,6 +134,8 @@ export class HitlNode implements INodeType {
 				options: [
 					{ name: 'Text/Markdown', value: 'markdown' },
 					{ name: 'Image', value: 'image' },
+					{ name: 'Document / File', value: 'file' },
+					{ name: 'Video Link', value: 'video' },
 				],
 				description: 'Type of content in the request',
 			},
@@ -169,6 +171,68 @@ export class HitlNode implements INodeType {
 				required: true,
 				default: '',
 				description: 'URL of image to include with the request',
+			},
+			{
+				displayName: 'File URL',
+				name: 'fileUrl',
+				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						contentType: ['file'],
+					},
+				},
+				required: true,
+				default: '',
+				description: 'URL of the file to include with the request',
+			},
+			{
+				displayName: 'File Type',
+				name: 'fileType',
+				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						contentType: ['file'],
+					},
+				},
+				required: false,
+				default: '',
+				placeholder: 'application/pdf',
+				description: 'MIME type of the file (e.g. application/pdf)',
+			},
+			{
+				displayName: 'File Name',
+				name: 'fileName',
+				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						contentType: ['file'],
+					},
+				},
+				required: false,
+				default: '',
+				placeholder: 'document.pdf',
+				description: 'Display name of the file',
+			},
+			{
+				displayName: 'Video URL',
+				name: 'videoUrl',
+				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						contentType: ['video'],
+					},
+				},
+				required: true,
+				default: '',
+				description: 'YouTube, Vimeo, or direct video link',
 			},
 			{
 				displayName: 'Priority',
@@ -356,6 +420,18 @@ export class HitlNode implements INodeType {
 				const imageUrl = contentType === 'image'
 					? (this.getNodeParameter('imageUrl', i) as string)
 					: '';
+				const fileUrl = contentType === 'file'
+					? (this.getNodeParameter('fileUrl', i) as string)
+					: '';
+				const fileType = contentType === 'file'
+					? (this.getNodeParameter('fileType', i) as string)
+					: '';
+				const fileName = contentType === 'file'
+					? (this.getNodeParameter('fileName', i) as string)
+					: '';
+				const videoUrl = contentType === 'video'
+					? (this.getNodeParameter('videoUrl', i) as string)
+					: '';
 
 				// Get conditional timeout for time-sensitive requests
 				const timeoutSeconds = processingType === 'time-sensitive'
@@ -389,7 +465,7 @@ export class HitlNode implements INodeType {
 					throw new NodeOperationError(this.getNode(), 'Loop selection is required');
 				}
 
-				if (!requestText.trim()) {
+				if (contentType === 'markdown' && !requestText.trim()) {
 					throw new NodeOperationError(this.getNode(), 'Request text is required');
 				}
 
@@ -397,6 +473,20 @@ export class HitlNode implements INodeType {
 					throw new NodeOperationError(
 						this.getNode(),
 						'Image URL is required when content type is image',
+					);
+				}
+
+				if (contentType === 'file' && !fileUrl) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'File URL is required when content type is file',
+					);
+				}
+
+				if (contentType === 'video' && !videoUrl) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Video URL is required when content type is video',
 					);
 				}
 
@@ -611,6 +701,20 @@ export class HitlNode implements INodeType {
 				// Only include optional fields if they have values
 				if (contentType === 'image' && imageUrl && imageUrl.trim()) {
 					payload.image_url = imageUrl.trim();
+				}
+
+				if (contentType === 'file' && fileUrl && fileUrl.trim()) {
+					payload.file_url = fileUrl.trim();
+					if (fileType && fileType.trim()) {
+						payload.file_type = fileType.trim();
+					}
+					if (fileName && fileName.trim()) {
+						payload.file_name = fileName.trim();
+					}
+				}
+
+				if (contentType === 'video' && videoUrl && videoUrl.trim()) {
+					payload.video_url = videoUrl.trim();
 				}
 
 				if (context && context.trim() && context.trim() !== '{}') {
