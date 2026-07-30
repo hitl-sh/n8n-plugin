@@ -136,6 +136,7 @@ export class HitlNode implements INodeType {
 					{ name: 'Image', value: 'image' },
 					{ name: 'Document / File', value: 'file' },
 					{ name: 'Video Link', value: 'video' },
+					{ name: 'Audio', value: 'audio' },
 				],
 				description: 'Type of content in the request',
 			},
@@ -147,7 +148,6 @@ export class HitlNode implements INodeType {
 					show: {
 						resource: ['request'],
 						operation: ['sendAndWait'],
-						contentType: ['markdown'],
 					},
 				},
 				required: true,
@@ -235,6 +235,21 @@ export class HitlNode implements INodeType {
 				description: 'YouTube, Vimeo, or direct video link',
 			},
 			{
+				displayName: 'Audio URL',
+				name: 'audioUrl',
+				type: 'string',
+				displayOptions: {
+					show: {
+						resource: ['request'],
+						operation: ['sendAndWait'],
+						contentType: ['audio'],
+					},
+				},
+				required: true,
+				default: '',
+				description: 'SoundCloud, Spotify, or direct audio link (.mp3, .wav, .ogg, .m4a, .aac)',
+			},
+			{
 				displayName: 'Priority',
 				name: 'priority',
 				type: 'options',
@@ -267,6 +282,7 @@ export class HitlNode implements INodeType {
 				required: true,
 				default: 'text',
 				options: [
+					{ name: 'Editable Text', value: 'editable_text' },
 					{ name: 'Multi Select', value: 'multi_select' },
 					{ name: 'Number', value: 'number' },
 					{ name: 'Rating', value: 'rating' },
@@ -312,6 +328,60 @@ export class HitlNode implements INodeType {
 						typeOptions: {
 							rows: 3,
 						},
+					},
+					{
+						displayName: 'Assignee Role',
+						name: 'assigneeRole',
+						type: 'options',
+						default: 'any',
+						options: [
+							{ name: 'Any', value: 'any' },
+							{ name: 'Manager', value: 'manager' },
+							{ name: 'Admin', value: 'admin' },
+						],
+						description: 'Role required for the human responder',
+					},
+					{
+						displayName: 'Additional Image URLs',
+						name: 'imageUrls',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated additional image URLs to include with the request',
+					},
+					{
+						displayName: 'Additional File URLs',
+						name: 'fileUrls',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated additional file URLs to include with the request',
+					},
+					{
+						displayName: 'Additional File Types',
+						name: 'fileTypes',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated MIME types corresponding to additional file URLs',
+					},
+					{
+						displayName: 'Additional File Names',
+						name: 'fileNames',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated display names corresponding to additional file URLs',
+					},
+					{
+						displayName: 'Additional Video URLs',
+						name: 'videoUrls',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated additional video URLs to include with the request',
+					},
+					{
+						displayName: 'Additional Audio URLs',
+						name: 'audioUrls',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated additional audio URLs to include with the request',
 					},
 				],
 			},
@@ -413,10 +483,10 @@ export class HitlNode implements INodeType {
 				responseType = this.getNodeParameter('responseType', i) as string;
 				defaultResponse = this.getNodeParameter('defaultResponse', i) as string;
 
+				// Get request text (required for all content types)
+				const requestText = this.getNodeParameter('requestText', i) as string;
+
 				// Get conditional parameters based on content type
-				const requestText = contentType === 'markdown'
-					? (this.getNodeParameter('requestText', i) as string)
-					: '';
 				const imageUrl = contentType === 'image'
 					? (this.getNodeParameter('imageUrl', i) as string)
 					: '';
@@ -431,6 +501,9 @@ export class HitlNode implements INodeType {
 					: '';
 				const videoUrl = contentType === 'video'
 					? (this.getNodeParameter('videoUrl', i) as string)
+					: '';
+				const audioUrl = contentType === 'audio'
+					? (this.getNodeParameter('audioUrl', i) as string)
 					: '';
 
 				// Get conditional timeout for time-sensitive requests
@@ -465,7 +538,7 @@ export class HitlNode implements INodeType {
 					throw new NodeOperationError(this.getNode(), 'Loop selection is required');
 				}
 
-				if (contentType === 'markdown' && !requestText.trim()) {
+				if (!requestText.trim()) {
 					throw new NodeOperationError(this.getNode(), 'Request text is required');
 				}
 
@@ -487,6 +560,13 @@ export class HitlNode implements INodeType {
 					throw new NodeOperationError(
 						this.getNode(),
 						'Video URL is required when content type is video',
+					);
+				}
+
+				if (contentType === 'audio' && !audioUrl) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Audio URL is required when content type is audio',
 					);
 				}
 
@@ -562,6 +642,14 @@ export class HitlNode implements INodeType {
 				} else if (responseType === 'boolean') {
 					responseConfig = {
 						prompt: '',
+						required: true,
+					};
+				} else if (responseType === 'editable_text') {
+					responseConfig = {
+						prompt: '',
+						placeholder: 'Edit the text...',
+						min_length: 0,
+						max_length: 5000,
 						required: true,
 					};
 				} else {
@@ -715,6 +803,37 @@ export class HitlNode implements INodeType {
 
 				if (contentType === 'video' && videoUrl && videoUrl.trim()) {
 					payload.video_url = videoUrl.trim();
+				}
+
+				if (contentType === 'audio' && audioUrl && audioUrl.trim()) {
+					payload.audio_url = audioUrl.trim();
+				}
+
+				// Add multi-media arrays from additional fields
+				const splitCsv = (val: string) => val.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+
+				if (additionalFields.imageUrls) {
+					payload.image_urls = splitCsv(additionalFields.imageUrls as string);
+				}
+				if (additionalFields.fileUrls) {
+					payload.file_urls = splitCsv(additionalFields.fileUrls as string);
+				}
+				if (additionalFields.fileTypes) {
+					payload.file_types = splitCsv(additionalFields.fileTypes as string);
+				}
+				if (additionalFields.fileNames) {
+					payload.file_names = splitCsv(additionalFields.fileNames as string);
+				}
+				if (additionalFields.videoUrls) {
+					payload.video_urls = splitCsv(additionalFields.videoUrls as string);
+				}
+				if (additionalFields.audioUrls) {
+					payload.audio_urls = splitCsv(additionalFields.audioUrls as string);
+				}
+
+				// Add assignee role if specified
+				if (additionalFields.assigneeRole && additionalFields.assigneeRole !== 'any') {
+					payload.assignee_role = additionalFields.assigneeRole;
 				}
 
 				if (context && context.trim() && context.trim() !== '{}') {
