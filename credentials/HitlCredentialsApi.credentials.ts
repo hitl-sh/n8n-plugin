@@ -7,7 +7,7 @@ import {
 
 export class HitlCredentialsApi implements ICredentialType {
 	name = 'hitlCredentialsApi';
-	displayName = 'HITL API';
+	displayName = 'HITL.sh Human Approval API';
 	documentationUrl = 'https://docs.hitl.sh/api';
 	properties: INodeProperties[] = [
 		{
@@ -19,7 +19,7 @@ export class HitlCredentialsApi implements ICredentialType {
 			},
 			default: '',
 			required: true,
-			description: 'Your HITL API key from the platform settings',
+			description: 'Your HITL.sh API key, from Settings in the platform',
 		},
 		{
 			displayName: 'Base URL',

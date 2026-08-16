@@ -1,14 +1,22 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
-  "version": "0.1.6",
-  "description": "n8n node for HITL Platform - create human-in-the-loop decision requests with webhook responses",
+  "version": "0.2.0",
+  "description": "Human approval node for n8n — pause workflows and wait for a person to approve, reject, or sign off. Powered by HITL.sh.",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "n8n",
+    "approval",
+    "approve",
+    "human-approval",
+    "sign-off",
+    "human-in-the-loop",
+    "hitl",
+    "human-review"
   ],
   "license": "MIT",
   "homepage": "https://hitl.sh",
   "author": {
-    "name": "Human Approval - HITL Platform",
+    "name": "HITL.sh",
     "email": "team@hitl.sh"
   },
   "repository": {

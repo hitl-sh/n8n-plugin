@@ -1,6 +1,29 @@
 {
-  "categories": ["Communication", "HITL"],
-  "subcategories": {
-    "HITL": ["Human in the Loop"]
-  }
+	"node": "n8n-nodes-human-in-the-loop.hitlNode",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"details": "Pause a workflow and wait for human approval. Sends an approval request to a loop of reviewers on HITL.sh, then resumes when someone approves, rejects, or signs off.",
+	"categories": ["Communication", "HITL"],
+	"subcategories": {
+		"HITL": ["Human in the Loop"]
+	},
+	"alias": [
+		"Approval", "Approve", "Approve or Reject",
+		"Human Approval", "Manual Approval",
+		"Sign Off", "Signoff",
+		"Human Review", "HITL", "HITL.sh",
+		"Wait for Human", "Four Eyes", "Maker Checker"
+	],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://docs.hitl.sh/api/authentication"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://docs.hitl.sh/integrations/n8n"
+			}
+		]
+	}
 }

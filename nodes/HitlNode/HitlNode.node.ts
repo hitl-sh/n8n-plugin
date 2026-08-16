@@ -13,15 +13,16 @@ import { NodeOperationError } from 'n8n-workflow';
 
 export class HitlNode implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Human Approvals - HITL Platform',
+		displayName: 'Human Approval (HITL.sh)',
 		icon: 'file:hitl.svg',
 		name: 'hitlNode',
 		group: ['transform'],
 		version: 1,
-		description: 'Create human-in-the-loop decision requests and wait for human responses',
+		description: 'Request human approval and pause the workflow until a person approves, rejects, or signs off',
 		defaults: {
-			name: 'Human Approvals - HITL Platform',
+			name: 'Human Approval',
 		},
+		subtitle: '={{$parameter["responseType"]}}',
 		credentials: [
 			{
 				name: 'hitlCredentialsApi',
@@ -39,7 +40,7 @@ export class HitlNode implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Request',
+						name: 'Approval Request',
 						value: 'request',
 					},
 				],
@@ -57,16 +58,16 @@ export class HitlNode implements INodeType {
 				},
 				options: [
 					{
-						name: 'Send and Wait',
+						name: 'Request Approval and Wait',
 						value: 'sendAndWait',
-						description: 'Create a request and wait for human response',
-						action: 'Send request and wait for response',
+						description: 'Send an approval request and wait for a person to approve or reject it',
+						action: 'Request human approval and wait for the response',
 					},
 				],
 				default: 'sendAndWait',
 			},
 			{
-				displayName: 'Loop Name or ID',
+				displayName: 'Approval Loop Name or ID',
 				name: 'loopId',
 				type: 'options',
 				typeOptions: {
@@ -132,16 +133,16 @@ export class HitlNode implements INodeType {
 				required: true,
 				default: 'markdown',
 				options: [
-					{ name: 'Text/Markdown', value: 'markdown' },
-					{ name: 'Image', value: 'image' },
-					{ name: 'Document / File', value: 'file' },
-					{ name: 'Video Link', value: 'video' },
 					{ name: 'Audio', value: 'audio' },
+					{ name: 'Document / File', value: 'file' },
+					{ name: 'Image', value: 'image' },
+					{ name: 'Text/Markdown', value: 'markdown' },
+					{ name: 'Video Link', value: 'video' },
 				],
 				description: 'Type of content in the request',
 			},
 			{
-				displayName: 'Request Text',
+				displayName: 'Approval Request Text',
 				name: 'requestText',
 				type: 'string',
 				displayOptions: {
@@ -152,7 +153,7 @@ export class HitlNode implements INodeType {
 				},
 				required: true,
 				default: '',
-				description: 'The question or task for the human to respond to',
+				description: 'The question or task the approver sees',
 				typeOptions: {
 					rows: 4,
 				},
@@ -198,7 +199,6 @@ export class HitlNode implements INodeType {
 						contentType: ['file'],
 					},
 				},
-				required: false,
 				default: '',
 				placeholder: 'application/pdf',
 				description: 'MIME type of the file (e.g. application/pdf)',
@@ -214,7 +214,6 @@ export class HitlNode implements INodeType {
 						contentType: ['file'],
 					},
 				},
-				required: false,
 				default: '',
 				placeholder: 'document.pdf',
 				description: 'Display name of the file',
@@ -270,7 +269,7 @@ export class HitlNode implements INodeType {
 				description: 'Priority level for the request',
 			},
 			{
-				displayName: 'Response Type',
+				displayName: 'Approval Response Type',
 				name: 'responseType',
 				type: 'options',
 				displayOptions: {
@@ -282,18 +281,18 @@ export class HitlNode implements INodeType {
 				required: true,
 				default: 'text',
 				options: [
+					{ name: 'Approve/Reject (Yes/No)', value: 'boolean' },
 					{ name: 'Editable Text', value: 'editable_text' },
 					{ name: 'Multi Select', value: 'multi_select' },
 					{ name: 'Number', value: 'number' },
 					{ name: 'Rating', value: 'rating' },
 					{ name: 'Single Select', value: 'single_select' },
 					{ name: 'Text', value: 'text' },
-					{ name: 'Yes/No', value: 'boolean' },
 				],
-				description: 'Type of response expected from the human',
+				description: 'Type of response expected from the approver',
 			},
 		{
-				displayName: 'Default Response',
+				displayName: 'Default Response on Timeout',
 				name: 'defaultResponse',
 				type: 'string',
 				displayOptions: {
@@ -320,47 +319,11 @@ export class HitlNode implements INodeType {
 				},
 				options: [
 					{
-						displayName: 'Context',
-						name: 'context',
-						type: 'json',
-						default: '{}',
-						description: 'Optional additional context data for the request (JSON format)',
-						typeOptions: {
-							rows: 3,
-						},
-					},
-					{
-						displayName: 'Assignee Role',
-						name: 'assigneeRole',
-						type: 'options',
-						default: 'any',
-						options: [
-							{ name: 'Any', value: 'any' },
-							{ name: 'Manager', value: 'manager' },
-							{ name: 'Admin', value: 'admin' },
-						],
-						description: 'Role required for the human responder',
-					},
-					{
-						displayName: 'Additional Image URLs',
-						name: 'imageUrls',
+						displayName: 'Additional Audio URLs',
+						name: 'audioUrls',
 						type: 'string',
 						default: '',
-						description: 'Comma-separated additional image URLs to include with the request',
-					},
-					{
-						displayName: 'Additional File URLs',
-						name: 'fileUrls',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated additional file URLs to include with the request',
-					},
-					{
-						displayName: 'Additional File Types',
-						name: 'fileTypes',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated MIME types corresponding to additional file URLs',
+						description: 'Comma-separated additional audio URLs to include with the request',
 					},
 					{
 						displayName: 'Additional File Names',
@@ -370,6 +333,27 @@ export class HitlNode implements INodeType {
 						description: 'Comma-separated display names corresponding to additional file URLs',
 					},
 					{
+						displayName: 'Additional File Types',
+						name: 'fileTypes',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated MIME types corresponding to additional file URLs',
+					},
+					{
+						displayName: 'Additional File URLs',
+						name: 'fileUrls',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated additional file URLs to include with the request',
+					},
+					{
+						displayName: 'Additional Image URLs',
+						name: 'imageUrls',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated additional image URLs to include with the request',
+					},
+					{
 						displayName: 'Additional Video URLs',
 						name: 'videoUrls',
 						type: 'string',
@@ -377,11 +361,26 @@ export class HitlNode implements INodeType {
 						description: 'Comma-separated additional video URLs to include with the request',
 					},
 					{
-						displayName: 'Additional Audio URLs',
-						name: 'audioUrls',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated additional audio URLs to include with the request',
+						displayName: 'Approver Role',
+						name: 'assigneeRole',
+						type: 'options',
+						default: 'any',
+						options: [
+							{ name: 'Any', value: 'any' },
+							{ name: 'Manager', value: 'manager' },
+							{ name: 'Admin', value: 'admin' },
+						],
+						description: 'Role required for the approver',
+					},
+					{
+						displayName: 'Context',
+						name: 'context',
+						type: 'json',
+						default: '{}',
+						description: 'Optional additional context data for the request (JSON format)',
+						typeOptions: {
+							rows: 3,
+						},
 					},
 				],
 			},
