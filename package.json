@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
-  "version": "0.2.0",
-  "description": "Human approval node for n8n — pause workflows and wait for a person to approve, reject, or sign off. Powered by HITL.sh.",
+  "version": "0.3.0",
+  "description": "HITL workflow node for n8n — trigger human-in-the-loop workflows via webhook and wait for review results. Powered by HITL.sh.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",

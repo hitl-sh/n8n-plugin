@@ -1,11 +1,9 @@
 import type {
 	IExecuteFunctions,
-	ILoadOptionsFunctions,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
 	IHttpRequestOptions,
-	INodePropertyOptions,
 } from 'n8n-workflow';
 import { NodeOperationError } from 'n8n-workflow';
 
@@ -13,16 +11,16 @@ import { NodeOperationError } from 'n8n-workflow';
 
 export class HitlNode implements INodeType {
 	description: INodeTypeDescription = {
-		displayName: 'Human Approval (HITL.sh)',
+		displayName: 'HITL Workflow',
 		icon: 'file:hitl.svg',
 		name: 'hitlNode',
 		group: ['transform'],
-		version: 1,
-		description: 'Request human approval and pause the workflow until a person approves, rejects, or signs off',
+		version: 2,
+		description: 'Trigger a HITL workflow via webhook and wait for the human review result',
 		defaults: {
-			name: 'Human Approval',
+			name: 'HITL Workflow',
 		},
-		subtitle: '={{$parameter["responseType"]}}',
+		subtitle: 'Workflow trigger + wait',
 		credentials: [
 			{
 				name: 'hitlCredentialsApi',
@@ -34,73 +32,36 @@ export class HitlNode implements INodeType {
 		usableAsTool: true,
 		properties: [
 			{
-				displayName: 'Resource',
-				name: 'resource',
-				type: 'options',
-				noDataExpression: true,
-				options: [
-					{
-						name: 'Approval Request',
-						value: 'request',
-					},
-				],
-				default: 'request',
-			},
-			{
-				displayName: 'Operation',
-				name: 'operation',
-				type: 'options',
-				noDataExpression: true,
-				displayOptions: {
-					show: {
-						resource: ['request'],
-					},
-				},
-				options: [
-					{
-						name: 'Request Approval and Wait',
-						value: 'sendAndWait',
-						description: 'Send an approval request and wait for a person to approve or reject it',
-						action: 'Request human approval and wait for the response',
-					},
-				],
-				default: 'sendAndWait',
-			},
-			{
-				displayName: 'Approval Loop Name or ID',
-				name: 'loopId',
-				type: 'options',
-				typeOptions: {
-					loadOptionsMethod: 'getLoops',
-				},
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
+				displayName: 'Webhook URL',
+				name: 'webhookUrl',
+				type: 'string',
 				required: true,
 				default: '',
+				placeholder: 'https://api.hitl.sh/v1/workflows/webhook/your-webhook-id',
 				description:
-					'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+					'The webhook URL from your activated HITL workflow. Find it in the HITL workflow designer.',
+			},
+			{
+				displayName: 'JSON Payload',
+				name: 'jsonPayload',
+				type: 'json',
+				required: true,
+				default: '{}',
+				description: 'The JSON data to send to the HITL workflow',
+				typeOptions: {
+					rows: 6,
+				},
 			},
 			{
 				displayName: 'Processing Type',
 				name: 'processingType',
 				type: 'options',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				required: true,
 				default: 'deferred',
 				options: [
 					{ name: 'Deferred', value: 'deferred' },
 					{ name: 'Time-Sensitive', value: 'time-sensitive' },
 				],
-				description: 'Type of request processing',
+				description: 'Whether this request is time-sensitive or can be handled later',
 			},
 			{
 				displayName: 'Timeout (Seconds)',
@@ -108,8 +69,6 @@ export class HitlNode implements INodeType {
 				type: 'number',
 				displayOptions: {
 					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
 						processingType: ['time-sensitive'],
 					},
 				},
@@ -121,344 +80,14 @@ export class HitlNode implements INodeType {
 				},
 			},
 			{
-				displayName: 'Content Type',
-				name: 'contentType',
-				type: 'options',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				required: true,
-				default: 'markdown',
-				options: [
-					{ name: 'Audio', value: 'audio' },
-					{ name: 'Document / File', value: 'file' },
-					{ name: 'Image', value: 'image' },
-					{ name: 'Text/Markdown', value: 'markdown' },
-					{ name: 'Video Link', value: 'video' },
-				],
-				description: 'Type of content in the request',
-			},
-			{
-				displayName: 'Approval Request Text',
-				name: 'requestText',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				required: true,
-				default: '',
-				description: 'The question or task the approver sees',
-				typeOptions: {
-					rows: 4,
-				},
-			},
-			{
-				displayName: 'Image URL',
-				name: 'imageUrl',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						contentType: ['image'],
-					},
-				},
-				required: true,
-				default: '',
-				description: 'URL of image to include with the request',
-			},
-			{
-				displayName: 'File URL',
-				name: 'fileUrl',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						contentType: ['file'],
-					},
-				},
-				required: true,
-				default: '',
-				description: 'URL of the file to include with the request',
-			},
-			{
-				displayName: 'File Type',
-				name: 'fileType',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						contentType: ['file'],
-					},
-				},
-				default: '',
-				placeholder: 'application/pdf',
-				description: 'MIME type of the file (e.g. application/pdf)',
-			},
-			{
-				displayName: 'File Name',
-				name: 'fileName',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						contentType: ['file'],
-					},
-				},
-				default: '',
-				placeholder: 'document.pdf',
-				description: 'Display name of the file',
-			},
-			{
-				displayName: 'Video URL',
-				name: 'videoUrl',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						contentType: ['video'],
-					},
-				},
-				required: true,
-				default: '',
-				description: 'YouTube, Vimeo, or direct video link',
-			},
-			{
-				displayName: 'Audio URL',
-				name: 'audioUrl',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						contentType: ['audio'],
-					},
-				},
-				required: true,
-				default: '',
-				description: 'SoundCloud, Spotify, or direct audio link (.mp3, .wav, .ogg, .m4a, .aac)',
-			},
-			{
-				displayName: 'Priority',
-				name: 'priority',
-				type: 'options',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				required: true,
-				default: 'medium',
-				options: [
-					{ name: 'Low', value: 'low' },
-					{ name: 'Medium', value: 'medium' },
-					{ name: 'High', value: 'high' },
-					{ name: 'Critical', value: 'critical' },
-				],
-				description: 'Priority level for the request',
-			},
-			{
-				displayName: 'Approval Response Type',
-				name: 'responseType',
-				type: 'options',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				required: true,
-				default: 'text',
-				options: [
-					{ name: 'Approve/Reject (Yes/No)', value: 'boolean' },
-					{ name: 'Editable Text', value: 'editable_text' },
-					{ name: 'Multi Select', value: 'multi_select' },
-					{ name: 'Number', value: 'number' },
-					{ name: 'Rating', value: 'rating' },
-					{ name: 'Single Select', value: 'single_select' },
-					{ name: 'Text', value: 'text' },
-				],
-				description: 'Type of response expected from the approver',
-			},
-		{
-				displayName: 'Default Response on Timeout',
-				name: 'defaultResponse',
-				type: 'string',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				required: true,
-				default: '',
-				description: 'Default response if request times out or fails',
-			},
-			{
-				displayName: 'Additional Fields',
-				name: 'additionalFields',
-				type: 'collection',
-				placeholder: 'Add Field',
-				default: {},
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-					},
-				},
-				options: [
-					{
-						displayName: 'Additional Audio URLs',
-						name: 'audioUrls',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated additional audio URLs to include with the request',
-					},
-					{
-						displayName: 'Additional File Names',
-						name: 'fileNames',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated display names corresponding to additional file URLs',
-					},
-					{
-						displayName: 'Additional File Types',
-						name: 'fileTypes',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated MIME types corresponding to additional file URLs',
-					},
-					{
-						displayName: 'Additional File URLs',
-						name: 'fileUrls',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated additional file URLs to include with the request',
-					},
-					{
-						displayName: 'Additional Image URLs',
-						name: 'imageUrls',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated additional image URLs to include with the request',
-					},
-					{
-						displayName: 'Additional Video URLs',
-						name: 'videoUrls',
-						type: 'string',
-						default: '',
-						description: 'Comma-separated additional video URLs to include with the request',
-					},
-					{
-						displayName: 'Approver Role',
-						name: 'assigneeRole',
-						type: 'options',
-						default: 'any',
-						options: [
-							{ name: 'Any', value: 'any' },
-							{ name: 'Manager', value: 'manager' },
-							{ name: 'Admin', value: 'admin' },
-						],
-						description: 'Role required for the approver',
-					},
-					{
-						displayName: 'Context',
-						name: 'context',
-						type: 'json',
-						default: '{}',
-						description: 'Optional additional context data for the request (JSON format)',
-						typeOptions: {
-							rows: 3,
-						},
-					},
-				],
-			},
-			{
-				displayName: 'Response Options',
-				name: 'responseOptions',
-				type: 'string',
-				default: '',
-				description: 'Comma-separated options (e.g., "Yes,No,Maybe")',
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						responseType: ['single_select', 'multi_select'],
-					},
-				},
-			},
-			{
-				displayName: 'Rating Minimum',
-				name: 'ratingMin',
-				type: 'number',
-				default: 1,
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						responseType: ['rating'],
-					},
-				},
-				description: 'Minimum rating value',
-			},
-			{
-				displayName: 'Rating Maximum',
-				name: 'ratingMax',
-				type: 'number',
-				default: 5,
-				displayOptions: {
-					show: {
-						resource: ['request'],
-						operation: ['sendAndWait'],
-						responseType: ['rating'],
-					},
-				},
-				description: 'Maximum rating value',
+				displayName: 'Wait for Completion',
+				name: 'waitForCompletion',
+				type: 'boolean',
+				default: true,
+				description:
+					'Whether to wait for the HITL workflow to complete before continuing. If false, returns immediately with the execution ID.',
 			},
 		],
-	};
-
-	methods = {
-		loadOptions: {
-			async getLoops(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-				try {
-					const credentials = await this.getCredentials('hitlCredentialsApi');
-					const options: IHttpRequestOptions = {
-						method: 'GET',
-						url: `${credentials.baseUrl}/v1/api/loops`,
-						headers: {
-							Authorization: `Bearer ${credentials.apiKey}`,
-							'Content-Type': 'application/json',
-						},
-						json: true,
-					};
-
-					const response = await this.helpers.httpRequest(options);
-
-					if (!response.error && response.data && response.data.loops) {
-						return response.data.loops.map((loop: any) => ({
-							name: `${loop.name} (${loop.member_count || 0} members)${loop.description ? ' - ' + loop.description : ''}`,
-							value: loop.id,
-						}));
-					}
-
-					return [];
-				} catch (error) {
-					throw new NodeOperationError(this.getNode(), `Failed to load loops: ${error.message}`);
-				}
-			},
-		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -466,529 +95,198 @@ export class HitlNode implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		for (let i = 0; i < items.length; i++) {
-			// Note: If multiple input items, the throw will pause after processing the first. Consider single-item use or refactor for batching.
-			let responseType = '';
-			let responseConfig: any = {};
-			let responseOptions = '';
-			let defaultResponse = '';
-			let formattedDefaultResponse: any = '';
-
 			try {
-				// Get required parameters
-				const loopId = this.getNodeParameter('loopId', i) as string;
+				const webhookUrl = this.getNodeParameter('webhookUrl', i) as string;
+				const jsonPayloadRaw = this.getNodeParameter('jsonPayload', i) as string;
 				const processingType = this.getNodeParameter('processingType', i) as string;
-				const contentType = this.getNodeParameter('contentType', i) as string;
-				const priority = this.getNodeParameter('priority', i) as string;
-				responseType = this.getNodeParameter('responseType', i) as string;
-				defaultResponse = this.getNodeParameter('defaultResponse', i) as string;
+				const waitForCompletion = this.getNodeParameter('waitForCompletion', i) as boolean;
 
-				// Get request text (required for all content types)
-				const requestText = this.getNodeParameter('requestText', i) as string;
+				if (!webhookUrl || !webhookUrl.trim()) {
+					throw new NodeOperationError(this.getNode(), 'Webhook URL is required');
+				}
 
-				// Get conditional parameters based on content type
-				const imageUrl = contentType === 'image'
-					? (this.getNodeParameter('imageUrl', i) as string)
-					: '';
-				const fileUrl = contentType === 'file'
-					? (this.getNodeParameter('fileUrl', i) as string)
-					: '';
-				const fileType = contentType === 'file'
-					? (this.getNodeParameter('fileType', i) as string)
-					: '';
-				const fileName = contentType === 'file'
-					? (this.getNodeParameter('fileName', i) as string)
-					: '';
-				const videoUrl = contentType === 'video'
-					? (this.getNodeParameter('videoUrl', i) as string)
-					: '';
-				const audioUrl = contentType === 'audio'
-					? (this.getNodeParameter('audioUrl', i) as string)
-					: '';
+				// Validate the webhook URL format
+				if (!webhookUrl.startsWith('http://') && !webhookUrl.startsWith('https://')) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Webhook URL must start with http:// or https://',
+					);
+				}
 
-				// Get conditional timeout for time-sensitive requests
-				const timeoutSeconds = processingType === 'time-sensitive'
-					? (this.getNodeParameter('timeoutSeconds', i) as number)
-					: 600;
-
-				// Get additional fields
-				const additionalFields = this.getNodeParameter('additionalFields', i) as any;
-				const context = (additionalFields.context as string) || '{}';
-				responseOptions =
-					responseType === 'single_select' || responseType === 'multi_select'
-						? (this.getNodeParameter('responseOptions', i) as string)
-						: '';
-				const ratingMin =
-					responseType === 'rating' ? (this.getNodeParameter('ratingMin', i) as number) : 1;
-				const ratingMax =
-					responseType === 'rating' ? (this.getNodeParameter('ratingMax', i) as number) : 5;
-
-				// Validate inputs
-				let parsedContext;
+				// Parse the JSON payload
+				let parsedPayload: any;
 				try {
-					parsedContext = JSON.parse(context || '{}');
-				} catch (error) {
+					parsedPayload =
+						typeof jsonPayloadRaw === 'string' ? JSON.parse(jsonPayloadRaw) : jsonPayloadRaw;
+				} catch (error: any) {
 					throw new NodeOperationError(
 						this.getNode(),
-						`Invalid JSON format for context: ${error.message}`,
+						`Invalid JSON payload: ${error.message}`,
 					);
 				}
 
-				if (!loopId) {
-					throw new NodeOperationError(this.getNode(), 'Loop selection is required');
-				}
-
-				if (!requestText.trim()) {
-					throw new NodeOperationError(this.getNode(), 'Request text is required');
-				}
-
-				if (contentType === 'image' && !imageUrl) {
-					throw new NodeOperationError(
-						this.getNode(),
-						'Image URL is required when content type is image',
-					);
-				}
-
-				if (contentType === 'file' && !fileUrl) {
-					throw new NodeOperationError(
-						this.getNode(),
-						'File URL is required when content type is file',
-					);
-				}
-
-				if (contentType === 'video' && !videoUrl) {
-					throw new NodeOperationError(
-						this.getNode(),
-						'Video URL is required when content type is video',
-					);
-				}
-
-				if (contentType === 'audio' && !audioUrl) {
-					throw new NodeOperationError(
-						this.getNode(),
-						'Audio URL is required when content type is audio',
-					);
-				}
-
-				// Build response config - web portal compatible format
-				responseConfig = {};
-				if (responseType === 'single_select' || responseType === 'multi_select') {
-					if (!responseOptions || !responseOptions.trim()) {
-						throw new NodeOperationError(
-							this.getNode(),
-							'Response options are required for select types',
-						);
-					}
-					const optionsArray = responseOptions
-						.split(',')
-						.map((opt) => opt.trim())
-						.filter((opt) => opt.length > 0);
-					if (optionsArray.length === 0) {
-						throw new NodeOperationError(
-							this.getNode(),
-							'At least one response option is required for select types',
-						);
-					}
-
-					// Format options to match web portal format: {value, label}
-					const formattedOptions = optionsArray.map((option) => ({
-						value: option.toLowerCase().replace(/\s+/g, '_'), // Convert to snake_case for value
-						label: option, // Keep original text as label
-					}));
-
-					responseConfig = {
-						prompt: '',
-						options: formattedOptions,
-						required: true,
-					};
-
-					// For multi_select, add selection limits
-					if (responseType === 'multi_select') {
-						responseConfig.min_selections = 1;
-						responseConfig.max_selections = formattedOptions.length;
-					}
-				} else if (responseType === 'rating') {
-					// Validate rating range
-					if (ratingMax <= ratingMin) {
-						throw new NodeOperationError(
-							this.getNode(),
-							`Rating maximum (${ratingMax}) must be greater than minimum (${ratingMin})`,
-						);
-					}
-
-					responseConfig = {
-						prompt: '',
-						min: ratingMin,
-						max: ratingMax,
-						required: true,
-					};
-				} else if (responseType === 'number') {
-					responseConfig = {
-						required: true,
-						prompt: '',
-						min_value: 0,
-						max_value: 1000000,
-						decimal_places: 0,
-						allow_negative: false,
-					};
-				} else if (responseType === 'text') {
-					responseConfig = {
-						prompt: '',
-						placeholder: 'Enter your response...',
-						min_length: 0,
-						max_length: 1000,
-						required: true,
-					};
-				} else if (responseType === 'boolean') {
-					responseConfig = {
-						prompt: '',
-						required: true,
-					};
-				} else if (responseType === 'editable_text') {
-					responseConfig = {
-						prompt: '',
-						placeholder: 'Edit the text...',
-						min_length: 0,
-						max_length: 5000,
-						required: true,
-					};
-				} else {
-					// Fallback
-					responseConfig = {
-						required: true,
-					};
-				}
-
-				// Format default response to match expected format
-				formattedDefaultResponse = defaultResponse;
-
-				if (responseType === 'single_select' || responseType === 'multi_select') {
-					// For select types, convert the default response to use the value format
-					if (typeof defaultResponse === 'string') {
-						const options = responseConfig.options as any[];
-						let matchingOption;
-
-						// Try multiple matching strategies in order:
-						// 1. Exact label match (case sensitive)
-						matchingOption = options.find((opt: any) => opt.label === defaultResponse);
-
-						// 2. Case-insensitive label match
-						if (!matchingOption) {
-							matchingOption = options.find(
-								(opt: any) => opt.label.toLowerCase() === defaultResponse.toLowerCase(),
-							);
-						}
-
-						// 3. Exact value match (case sensitive)
-						if (!matchingOption) {
-							matchingOption = options.find((opt: any) => opt.value === defaultResponse);
-						}
-
-						// 4. Case-insensitive value match
-						if (!matchingOption) {
-							matchingOption = options.find(
-								(opt: any) => opt.value.toLowerCase() === defaultResponse.toLowerCase(),
-							);
-						}
-
-						// 5. Try converting default response to snake_case and match value
-						if (!matchingOption) {
-							const normalizedDefault = defaultResponse.toLowerCase().replace(/\s+/g, '_');
-							matchingOption = options.find((opt: any) => opt.value === normalizedDefault);
-						}
-
-						if (matchingOption) {
-							formattedDefaultResponse = matchingOption.value;
-						} else {
-							// If no match found, use the first option's value
-							formattedDefaultResponse = options[0]?.value || defaultResponse;
-						}
-					}
-
-					if (responseType === 'multi_select' && typeof formattedDefaultResponse === 'string') {
-						// Multi-select expects array format
-						formattedDefaultResponse = [formattedDefaultResponse];
-					}
-				} else if (responseType === 'number') {
-					// For number type, convert string to number
-					if (typeof defaultResponse === 'string') {
-						const numberValue = parseFloat(defaultResponse);
-						if (!isNaN(numberValue)) {
-							formattedDefaultResponse = numberValue;
-						} else {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Default response must be a valid number for number type, got: ${defaultResponse}`,
-							);
-						}
-					} else if (typeof defaultResponse === 'number') {
-						formattedDefaultResponse = defaultResponse;
-					}
-				} else if (responseType === 'rating') {
-					// For rating type, convert string to number
-					if (typeof defaultResponse === 'string') {
-						const ratingValue = parseFloat(defaultResponse);
-						if (!isNaN(ratingValue)) {
-							// Validate that default response is within rating range
-							if (ratingValue < ratingMin || ratingValue > ratingMax) {
-								throw new NodeOperationError(
-									this.getNode(),
-									`Default response ${ratingValue} must be between ${ratingMin} and ${ratingMax}`,
-								);
-							}
-							formattedDefaultResponse = ratingValue;
-						} else {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Default response must be a valid number for rating type, got: ${defaultResponse}`,
-							);
-						}
-					} else if (typeof defaultResponse === 'number') {
-						// Validate that default response is within rating range
-						if (defaultResponse < ratingMin || defaultResponse > ratingMax) {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Default response ${defaultResponse} must be between ${ratingMin} and ${ratingMax}`,
-							);
-						}
-						formattedDefaultResponse = defaultResponse;
-					}
-				} else if (responseType === 'boolean') {
-					// For boolean type, convert string to boolean
-					if (typeof defaultResponse === 'string') {
-						const lowerDefault = defaultResponse.toLowerCase();
-						if (lowerDefault === 'true' || lowerDefault === '1' || lowerDefault === 'yes') {
-							formattedDefaultResponse = true;
-						} else if (lowerDefault === 'false' || lowerDefault === '0' || lowerDefault === 'no') {
-							formattedDefaultResponse = false;
-						} else {
-							throw new NodeOperationError(
-								this.getNode(),
-								`Default response must be true/false, yes/no, or 1/0 for boolean type, got: ${defaultResponse}`,
-							);
-						}
-					} else if (typeof defaultResponse === 'boolean') {
-						formattedDefaultResponse = defaultResponse;
-					}
-				}
-				// For text type, keep as string (no conversion needed)
-
-				// Prepare request payload - use original format that worked
-				const payload: any = {
+				// Build the webhook request body
+				const body: any = {
+					...parsedPayload,
 					processing_type: processingType,
-					type: contentType,
-					priority: priority,
-					request_text: requestText,
-					response_type: responseType,
-					response_config: responseConfig,
-					default_response: formattedDefaultResponse,
 					platform: 'n8n',
-					platform_version: '1.0.0',
+					platform_version: '2.0.0',
 				};
 
-				// Only include optional fields if they have values
-				if (contentType === 'image' && imageUrl && imageUrl.trim()) {
-					payload.image_url = imageUrl.trim();
+				// Add timeout for time-sensitive requests
+				if (processingType === 'time-sensitive') {
+					const timeoutSeconds = this.getNodeParameter('timeoutSeconds', i) as number;
+					body.timeout_seconds = timeoutSeconds;
 				}
 
-				if (contentType === 'file' && fileUrl && fileUrl.trim()) {
-					payload.file_url = fileUrl.trim();
-					if (fileType && fileType.trim()) {
-						payload.file_type = fileType.trim();
-					}
-					if (fileName && fileName.trim()) {
-						payload.file_name = fileName.trim();
-					}
-				}
-
-				if (contentType === 'video' && videoUrl && videoUrl.trim()) {
-					payload.video_url = videoUrl.trim();
-				}
-
-				if (contentType === 'audio' && audioUrl && audioUrl.trim()) {
-					payload.audio_url = audioUrl.trim();
-				}
-
-				// Add multi-media arrays from additional fields
-				const splitCsv = (val: string) => val.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
-
-				if (additionalFields.imageUrls) {
-					payload.image_urls = splitCsv(additionalFields.imageUrls as string);
-				}
-				if (additionalFields.fileUrls) {
-					payload.file_urls = splitCsv(additionalFields.fileUrls as string);
-				}
-				if (additionalFields.fileTypes) {
-					payload.file_types = splitCsv(additionalFields.fileTypes as string);
-				}
-				if (additionalFields.fileNames) {
-					payload.file_names = splitCsv(additionalFields.fileNames as string);
-				}
-				if (additionalFields.videoUrls) {
-					payload.video_urls = splitCsv(additionalFields.videoUrls as string);
-				}
-				if (additionalFields.audioUrls) {
-					payload.audio_urls = splitCsv(additionalFields.audioUrls as string);
-				}
-
-				// Add assignee role if specified
-				if (additionalFields.assigneeRole && additionalFields.assigneeRole !== 'any') {
-					payload.assignee_role = additionalFields.assigneeRole;
-				}
-
-				if (context && context.trim() && context.trim() !== '{}') {
-					payload.context = parsedContext;
-				}
-
-				if (processingType === 'time-sensitive' && timeoutSeconds) {
-					payload.timeout_seconds = timeoutSeconds;
-				}
-
-				// All requests use polling - no callback_url needed
-
-				// Make API request
+				// POST to the webhook URL
 				const credentials = await this.getCredentials('hitlCredentialsApi');
-				const options: IHttpRequestOptions = {
+				const postOptions: IHttpRequestOptions = {
 					method: 'POST',
-					url: `${credentials.baseUrl}/v1/api/loops/${loopId}/requests`,
+					url: webhookUrl.trim(),
 					headers: {
 						Authorization: `Bearer ${credentials.apiKey}`,
 						'Content-Type': 'application/json',
 					},
-					body: payload,
+					body,
 					json: true,
 				};
 
-				const response = await this.helpers.httpRequest(options);
+				const response = await this.helpers.httpRequest(postOptions);
 
 				if (response.error === true) {
 					throw new NodeOperationError(
 						this.getNode(),
-						`API Error: ${response.msg || 'Unknown error'}${response.data ? ' - ' + JSON.stringify(response.data) : ''}`,
+						`Webhook error: ${response.msg || 'Unknown error'}${response.data ? ' - ' + JSON.stringify(response.data) : ''}`,
 					);
 				}
 
-				// All requests wait for human response via polling
-				const requestId = response.data.request_id;
-				let pollingUrl = response.data.polling_url;
+				// Extract IDs from the webhook response
+				const executionId = response.data?.execution_id || response.execution_id;
+				const requestId = response.data?.request_id || response.request_id;
 
-				if (!pollingUrl) {
-					// Construct polling URL if not provided
-					pollingUrl = `${credentials.baseUrl}/v1/api/requests/${requestId}`;
+				if (!waitForCompletion) {
+					// Return immediately with execution info
+					returnData.push({
+						json: {
+							execution_id: executionId,
+							request_id: requestId,
+							status: 'triggered',
+							message: 'Workflow triggered successfully, not waiting for completion',
+							webhook_response: response.data || response,
+						},
+						pairedItem: { item: i },
+					});
+					continue;
 				}
 
-				// Ensure polling URL is absolute
-				if (!pollingUrl.startsWith('http')) {
-					pollingUrl = `${credentials.baseUrl}${pollingUrl.startsWith('/') ? '' : '/'}${pollingUrl}`;
+				// Poll for completion
+				if (!requestId) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Webhook response did not include a request_id. Cannot poll for completion.',
+					);
 				}
 
-				// Poll until backend marks request as completed or timeout
-				// Backend handles timeout logic for time-sensitive requests
+				const pollingUrl = `${credentials.baseUrl}/v1/api/requests/${requestId}`;
 				const pollInterval = 5000; // 5 seconds
 				const startTime = Date.now();
 				let pollCount = 0;
-
-				// Track waiting status for user feedback
-
 				let hitlResponse: any = null;
 				let isCompleted = false;
 
-				// Poll indefinitely - backend will handle timeouts
 				while (!isCompleted) {
-					// Wait before polling using a simple delay
+					// Wait before polling
 					const endTime = Date.now() + pollInterval;
 					while (Date.now() < endTime) {
-						// Simple busy wait for delay
-						await new Promise(resolve => resolve(null));
+						await new Promise((resolve) => resolve(null));
 					}
 
 					pollCount++;
 
-					// Track polling progress (we'll include this in the final response)
-
 					try {
-							const pollOptions: IHttpRequestOptions = {
-								method: 'GET',
-								url: pollingUrl,
-								headers: {
-									Authorization: `Bearer ${credentials.apiKey}`,
-									'Content-Type': 'application/json',
-								},
-								json: true,
-							};
+						const pollOptions: IHttpRequestOptions = {
+							method: 'GET',
+							url: pollingUrl,
+							headers: {
+								Authorization: `Bearer ${credentials.apiKey}`,
+								'Content-Type': 'application/json',
+							},
+							json: true,
+						};
 
-							hitlResponse = await this.helpers.httpRequest(pollOptions);
+						hitlResponse = await this.helpers.httpRequest(pollOptions);
 
-							if (hitlResponse.error) {
-								throw new NodeOperationError(
-									this.getNode(),
-									`Polling error: ${hitlResponse.msg || 'Unknown error'}`
-								);
-							}
-
-							const status = hitlResponse.data?.request?.status || hitlResponse.data?.status;
-
-							// Check for completed status - be more permissive with status values
-							if (status === 'completed' || status === 'answered' || status === 'resolved' ||
-								status === 'failed' || status === 'timeout' || status === 'cancelled') {
-								isCompleted = true;
-							}
-
-							// Also check if there's a response_data field indicating completion
-							const responseData = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data;
-							if (responseData !== undefined && responseData !== null) {
-								isCompleted = true;
-							}
-
-						} catch (pollError: any) {
-							// Continue polling on transient errors
-							// Backend will handle timeouts, so we don't give up on client side
-							// Just continue polling until backend returns completed/timeout status
+						if (hitlResponse.error) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Polling error: ${hitlResponse.msg || 'Unknown error'}`,
+							);
 						}
+
+						const status =
+							hitlResponse.data?.request?.status || hitlResponse.data?.status;
+
+						if (
+							status === 'completed' ||
+							status === 'answered' ||
+							status === 'resolved' ||
+							status === 'failed' ||
+							status === 'timeout' ||
+							status === 'cancelled'
+						) {
+							isCompleted = true;
+						}
+
+						// Also check if there's a response_data field indicating completion
+						const responseData =
+							hitlResponse.data?.request?.response_data ||
+							hitlResponse.data?.response_data;
+						if (responseData !== undefined && responseData !== null) {
+							isCompleted = true;
+						}
+					} catch (pollError: any) {
+						// Continue polling on transient errors
+						// Backend handles timeouts, so we keep polling
 					}
+				}
 
-					// Extract response data with completion info
-					const finalStatus = hitlResponse.data?.request?.status || hitlResponse.data?.status || 'completed';
-					const totalElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
-					const finalResponse = hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data || formattedDefaultResponse;
-					const responseBy = hitlResponse.data?.request?.response_by_user;
+				// Extract response data
+				const finalStatus =
+					hitlResponse.data?.request?.status || hitlResponse.data?.status || 'completed';
+				const totalElapsedSeconds = Math.round((Date.now() - startTime) / 1000);
+				const finalResponse =
+					hitlResponse.data?.request?.response_data || hitlResponse.data?.response_data;
+				const responseBy = hitlResponse.data?.request?.response_by_user;
 
-					const waitMessage = finalStatus === 'timeout'
-						? `Request timed out after ${totalElapsedSeconds}s - using default response`
-						: finalStatus === 'completed'
+				const waitMessage =
+					finalStatus === 'timeout'
+						? `Request timed out after ${totalElapsedSeconds}s`
+						: finalStatus === 'completed' || finalStatus === 'answered'
 							? `Human response received after ${totalElapsedSeconds}s`
 							: `Request ${finalStatus} after ${totalElapsedSeconds}s`;
 
-					const responseData: any = {
+				returnData.push({
+					json: {
 						request_id: requestId,
+						execution_id: executionId,
 						status: finalStatus,
 						response: finalResponse,
 						response_by: responseBy,
-						response_time_seconds: hitlResponse.data?.request?.response_time_seconds,
+						response_time_seconds:
+							hitlResponse.data?.request?.response_time_seconds,
 						message: waitMessage,
 						wait_info: {
 							total_wait_time_seconds: totalElapsedSeconds,
 							polling_cycles: pollCount,
 							processing_type: processingType,
-							was_timeout: finalStatus === 'timeout'
+							was_timeout: finalStatus === 'timeout',
 						},
-						polling_used: true,
-						polling_duration_ms: Date.now() - startTime,
 						full_response: hitlResponse.data?.request || hitlResponse.data,
-						original_request: {
-							processing_type: response.data.processing_type,
-							priority: response.data.priority,
-							timeout_at: response.data.timeout_at,
-							broadcasted_to: response.data.broadcasted_to,
-							notifications_sent: response.data.notifications_sent,
-							polling_url: response.data.polling_url,
-						}
-					};
-					returnData.push({
-				json: responseData,
-				pairedItem: { item: i }
-			});
+					},
+					pairedItem: { item: i },
+				});
 			} catch (error: any) {
-				// Enhanced error handling
 				let errorMessage = error.message;
 				if (error.response?.data) {
 					try {
