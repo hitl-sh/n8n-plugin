@@ -4,22 +4,22 @@ n8n community node for HITL (Human-in-the-Loop) Platform integration.
 
 ## Features
 
-- **Create Decision Requests**: Send requests to human experts for decision making
-- **Dynamic Loop Selection**: Automatically loads your HITL loops with metadata
+- **Create Decision Responses**: Send responses to human experts for decision making
+- **Dynamic Workflow Selection**: Automatically loads your HITL workflows with metadata
 - **Multiple Response Types**: Support for text, single/multi-select, rating, number, and boolean responses
 - **Real-time Integration**: Seamless integration with your HITL platform
 - **Bearer Token Authentication**: Secure API key authentication
 
 ## Prerequisites
 
-**Important**: You must download and install the HITL Platform app to receive and respond to decision requests sent from n8n workflows.
+**Important**: You must download and install the HITL Platform app to receive and respond to decision responses sent from n8n workflows.
 
 - Download the HITL app:
   - [iOS - App Store](https://apps.apple.com/us/app/hitl-human-in-the-loop/id6752878072)
   - [Android - Play Store](https://play.google.com/store/apps/details?id=hitl.sh.app)
   - Or visit [https://hitl.sh](https://hitl.sh) for more information
 - Create an account and obtain your API key
-- Set up your decision loops in the HITL platform
+- Set up your decision workflows in the HITL platform
 
 ## Installation
 
