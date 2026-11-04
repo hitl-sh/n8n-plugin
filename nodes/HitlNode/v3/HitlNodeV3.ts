@@ -209,6 +209,8 @@ function workflowInput(context: IExecuteFunctions, item: number): IDataObject {
 function pickedAnswers(context: IExecuteFunctions | IWebhookFunctions): Answer[] {
 	const parameters = context.getNode().parameters;
 	if (configuredOutputs(parameters).length === 1) return [];
+	// An AI agent's tool has one output: it gets the answer as is.
+	if ('isToolExecution' in context && context.isToolExecution?.()) return [];
 	return ((parameters.answerOutputs ?? []) as string[])
 		.map(decodeAnswer)
 		.filter((answer): answer is Answer => answer !== undefined);
