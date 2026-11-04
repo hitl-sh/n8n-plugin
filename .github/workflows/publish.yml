@@ -1,0 +1,28 @@
+name: Publish
+
+# Runs when a version tag is pushed: git tag v0.4.0 && git push origin v0.4.0
+# n8n requires community nodes to be published from GitHub Actions with provenance.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: The tag matches package.json
+        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      # Trusted publishing: link this repository and workflow file on npmjs.com first.
+      - run: npm publish --provenance --access public --ignore-scripts
