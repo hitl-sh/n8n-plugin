@@ -127,6 +127,7 @@ describe('outputs', () => {
 		expect(expression.startsWith('={{(')).toBe(true);
 		const source = expression.slice(3, -2);
 		// n8n evaluates the text without the module around it, so nothing outside the function may be used.
+		// eslint-disable-next-line @n8n/community-nodes/no-dangerous-functions -- the test stands in for n8n's evaluator
 		const evaluate = new Function('$parameter', `return ${source};`);
 		expect(evaluate({ answerOutputs: [approve, reject] }).map((o: { displayName: string }) => o.displayName)).toEqual([
 			'Approve',
