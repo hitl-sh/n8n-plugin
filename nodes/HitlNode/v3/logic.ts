@@ -94,6 +94,10 @@ export function callbackId(resource: string, body: IDataObject): string | undefi
 	return typeof raw === 'string' && OBJECT_ID.test(raw) ? raw : undefined;
 }
 
+/** What the API said, from an error n8n's request helper already wrapped. */
+export const apiReason = (error: unknown): string | undefined =>
+	(error as { context?: { data?: { msg?: string } } }).context?.data?.msg;
+
 export const requestError = (error: unknown): { status?: number; message: string } => {
 	const e = error as {
 		httpCode?: string;

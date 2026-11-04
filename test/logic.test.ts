@@ -9,6 +9,7 @@ import {
 	requestFinished,
 	runFinished,
 	unwrap,
+	apiReason,
 } from '../nodes/HitlNode/v3/logic';
 
 const fail = (error: unknown): never => {
@@ -145,5 +146,14 @@ describe('pollUntil', () => {
 			pollUntil(async () => { reads++; throw { response: { status: 401 } }; }, runFinished, { maxMs: 1e6, sleep: noSleep, fail }),
 		).rejects.toBeDefined();
 		expect(reads).toBe(1);
+	});
+});
+
+describe('apiReason', () => {
+	test('reads the reason from an error n8n already wrapped', () => {
+		expect(apiReason({ message: 'Bad request', context: { data: { msg: 'callback_url host could not be resolved' } } })).toBe(
+			'callback_url host could not be resolved',
+		);
+		expect(apiReason({ message: 'Bad request' })).toBeUndefined();
 	});
 });

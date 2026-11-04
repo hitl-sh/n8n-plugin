@@ -28,6 +28,7 @@ import {
 	runFinished,
 	unwrap,
 	type WaitMode,
+	apiReason,
 } from './logic';
 import { properties } from './properties';
 
@@ -81,7 +82,13 @@ function checkId(context: IExecuteFunctions, id: string, what: string, item: num
 
 /** The error a node throws for an API or other failure. */
 function nodeError(context: IExecuteFunctions, error: unknown, item: number) {
-	if (error instanceof NodeOperationError || error instanceof NodeApiError) return error;
+	if (error instanceof NodeOperationError) return error;
+	if (error instanceof NodeApiError) {
+		// n8n's request helper replaces the API's reason with a generic line for the status.
+		const reason = apiReason(error);
+		if (reason) error.message = reason;
+		return error;
+	}
 	const { message, status } = requestError(error);
 	if (status === undefined) {
 		return new NodeOperationError(context.getNode(), message, { itemIndex: item });
