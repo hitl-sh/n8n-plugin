@@ -32,8 +32,11 @@ The node also works as a tool for the AI Agent node, where it polls for the answ
 ### Example: approve a refund
 
 1. Build a workflow with a review step in HITL, read `{{trigger.body.amount}}` in it, and activate it.
-2. In n8n, add this node after your trigger. Choose Workflow, Run, pick the workflow, and set Input to
-   `{"amount": {{ $json.amount }}}`.
+2. In n8n, add this node after your trigger. Choose Workflow, Run and pick the workflow. A form appears with the
+   fields its steps read, so `customer.email` shows as Customer > Email. Type a value or map one with an expression
+   such as `{{ $json.amount }}`. Fields left empty are not sent. A number mapped with an expression stays a number,
+   and one typed directly is sent as text. If the workflow changes later, use Refresh Fields in the form's menu. To
+   send anything else, set Send Input As to JSON.
 3. Branch on the output with an If node: `status` is `completed`, `failed` or `timed_out`, and `result` holds the
    last decision, such as `{"selected_value": "approve"}`. `decisions` lists who decided what.
 

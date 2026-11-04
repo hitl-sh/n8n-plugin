@@ -28,6 +28,14 @@ describe('versions', () => {
 		expect(v3.credentials?.[0]?.name).toBe('hitlCredentialsApi');
 		expect(new Set(v3.properties.map((p) => p.type)).has('resourceLocator')).toBe(true);
 	});
+	test('version 3 builds its form from the workflow, and defaults to it', () => {
+		const v3 = node.getNodeType(3);
+		const mode = v3.description.properties.find((p) => p.name === 'inputMode');
+		expect(mode?.default).toBe('fields');
+		const form = v3.description.properties.find((p) => p.name === 'inputFields');
+		expect(form?.typeOptions?.loadOptionsDependsOn).toEqual(['workflowId.value']);
+		expect(typeof v3.methods?.resourceMapping?.[form!.typeOptions!.resourceMapper!.resourceMapperMethod!]).toBe('function');
+	});
 });
 
 describe('credential', () => {

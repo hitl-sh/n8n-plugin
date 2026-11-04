@@ -16,11 +16,16 @@ import {
 	type IWebhookFunctions,
 	type IWebhookResponseData,
 	type JsonObject,
+	type ResourceMapperFields,
+	type ResourceMapperValue,
 } from 'n8n-workflow';
 import {
 	baseUrlFor,
 	callbackId,
 	chooseWait,
+	fieldLabel,
+	inputPaths,
+	nestInput,
 	parseObject,
 	pollUntil,
 	requestError,
@@ -174,9 +179,17 @@ async function startAndWait(
 	return { paused: true };
 }
 
+function runInput(context: IExecuteFunctions, item: number): IDataObject {
+	if (context.getNodeParameter('inputMode', item, 'fields') === 'json') {
+		return parseObject(context.getNodeParameter('input', item, '{}'), 'Input', operationFailer(context, item));
+	}
+	const form = context.getNodeParameter('inputFields', item, null) as ResourceMapperValue | null;
+	return nestInput(form?.value);
+}
+
 function runWorkflow(context: IExecuteFunctions, item: number): Promise<Waited> {
 	const id = checkId(context, locator(context, 'workflowId', item), 'Workflow', item);
-	const input = parseObject(context.getNodeParameter('input', item, '{}'), 'Input', operationFailer(context, item));
+	const input = runInput(context, item);
 	return startAndWait(
 		context,
 		item,
@@ -347,6 +360,24 @@ export class HitlNodeV3 implements INodeType {
 	}
 
 	methods = {
+		resourceMapping: {
+			async getInputFields(this: ILoadOptionsFunctions): Promise<ResourceMapperFields> {
+				const id = String(this.getNodeParameter('workflowId', undefined, { extractValue: true }) ?? '').trim();
+				if (!OBJECT_ID.test(id)) return { fields: [], emptyFieldsNotice: 'Pick a workflow first.' };
+				const data = await api.call(this, 'GET', `/api/workflows/${id}/input`);
+				return {
+					fields: inputPaths(data).map((path) => ({
+						id: path,
+						displayName: fieldLabel(path),
+						required: false,
+						defaultMatch: false,
+						canBeUsedToMatch: false,
+						display: true,
+						type: 'string',
+					})),
+				};
+			},
+		},
 		listSearch: {
 			async searchWorkflows(
 				this: ILoadOptionsFunctions,

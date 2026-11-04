@@ -73,6 +73,49 @@ export function parseObject(value: unknown, name: string, fail: (message: string
 	return parsed as IDataObject;
 }
 
+/** customer_email or customerEmail as "Customer email". */
+const labelPart = (part: string): string => {
+	const words = part
+		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+		.replace(/[_-]+/g, ' ')
+		.trim()
+		.toLowerCase();
+	return words.charAt(0).toUpperCase() + words.slice(1);
+};
+
+/** How a field the workflow reads shows in the form: customer.email as "Customer > Email". */
+export const fieldLabel = (path: string): string => path.split('.').map(labelPart).join(' > ');
+
+/** The paths GET /workflows/:id/input lists, once each, in order. */
+export const inputPaths = (data: IDataObject): string[] => {
+	const fields = Array.isArray(data.fields) ? (data.fields as IDataObject[]) : [];
+	const paths = fields.map((field) => field.path).filter((path) => typeof path === 'string');
+	return [...new Set(paths as string[])].sort();
+};
+
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * The run's input from the form's values: customer.email becomes {customer: {email}}. Fields left
+ * empty are not sent, so a step sees them as missing. A false or 0 is a value and is sent.
+ */
+export function nestInput(values: Record<string, unknown> | null | undefined): IDataObject {
+	const input: IDataObject = {};
+	for (const [path, value] of Object.entries(values ?? {})) {
+		if (value === null || value === undefined || value === '') continue;
+		const parts = path.split('.');
+		if (parts.some((part) => part === '' || UNSAFE_KEYS.has(part))) continue;
+		let at = input;
+		parts.slice(0, -1).forEach((part) => {
+			const next = at[part];
+			if (next === null || typeof next !== 'object' || Array.isArray(next)) at[part] = {};
+			at = at[part] as IDataObject;
+		});
+		at[parts[parts.length - 1]!] = value as IDataObject[string];
+	}
+	return input;
+}
+
 /** Every API answer is {error, msg, data}. */
 export const unwrap = (answer: unknown): IDataObject => {
 	const body = (answer ?? {}) as IDataObject;

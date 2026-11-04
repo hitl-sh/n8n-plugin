@@ -3,7 +3,10 @@ import {
 	baseUrlFor,
 	callbackId,
 	chooseWait,
+	fieldLabel,
+	inputPaths,
 	isReachableUrl,
+	nestInput,
 	parseObject,
 	pollUntil,
 	requestFinished,
@@ -146,6 +149,36 @@ describe('pollUntil', () => {
 			pollUntil(async () => { reads++; throw { response: { status: 401 } }; }, runFinished, { maxMs: 1e6, sleep: noSleep, fail }),
 		).rejects.toBeDefined();
 		expect(reads).toBe(1);
+	});
+});
+
+describe('the input form', () => {
+	test('labels read as words, with groups shown', () => {
+		expect(fieldLabel('amount')).toBe('Amount');
+		expect(fieldLabel('customer.email')).toBe('Customer > Email');
+		expect(fieldLabel('order_total')).toBe('Order total');
+		expect(fieldLabel('customerName')).toBe('Customer name');
+	});
+	test('lists each field once, in a steady order, and tolerates nothing', () => {
+		expect(inputPaths({ fields: [{ path: 'b' }, { path: 'a.c' }, { path: 'b' }, {}] })).toEqual(['a.c', 'b']);
+		expect(inputPaths({})).toEqual([]);
+	});
+	test('nests the values the way the steps read them', () => {
+		expect(nestInput({ amount: 12, 'customer.email': 'a@b.c', 'customer.name': 'Sam' })).toEqual({
+			amount: 12,
+			customer: { email: 'a@b.c', name: 'Sam' },
+		});
+	});
+	test('leaves out empty fields but keeps false and 0', () => {
+		expect(nestInput({ a: '', b: null, c: undefined, d: 0, e: false })).toEqual({ d: 0, e: false });
+		expect(nestInput(null)).toEqual({});
+	});
+	test('a field cannot reach the prototype', () => {
+		expect(nestInput({ '__proto__.x': 1, 'a.constructor.y': 2, 'b..c': 3 })).toEqual({});
+		expect(({} as { x?: number }).x).toBeUndefined();
+	});
+	test('a field read both whole and by parts keeps its parts', () => {
+		expect(nestInput({ a: 'whole', 'a.b': 'part' })).toEqual({ a: { b: 'part' } });
 	});
 });
 
