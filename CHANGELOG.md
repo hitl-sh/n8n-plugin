@@ -2,6 +2,12 @@
 
 ## 0.4.0
 
+- Run a workflow: Request Details lists the fields the picked workflow reads, so you map your data into named
+  boxes instead of writing JSON (Map Automatically sends the item as it is). Additional Input (JSON) still sends
+  anything else.
+- Answer Outputs: pick the workflow's answers (its select options, or the two labels of a yes or no step) and each
+  gets its own output, plus Other for any other answer, no answer in time or a failed run. Empty keeps one output.
+- The workflow list links each workflow to the HITL editor and ends with Create a workflow in HITL.
 - New node version 3, the default for new nodes: pick a HITL workflow from a list and run it, wait for the
   people in it without holding an n8n worker, read runs and workflows, and create or read requests in a loop.
 - Version 1, as shipped in 0.1.6, stays for saved workflows. Its polling no longer spins the CPU, and it now

@@ -59,7 +59,11 @@ const workflowLocator = (operations: string[], resource = 'workflow'): INodeProp
 			name: 'list',
 			type: 'list',
 			placeholder: 'Select a workflow...',
-			typeOptions: { searchListMethod: 'searchWorkflows', searchable: true },
+			typeOptions: {
+				searchListMethod: 'searchWorkflows',
+				searchable: true,
+				allowNewResource: { label: 'Create a workflow in HITL', url: 'https://my.hitl.sh/workflows' },
+			},
 		},
 		{
 			displayName: 'ID',
@@ -180,15 +184,52 @@ export const properties: INodeProperties[] = [
 		description: 'Only workflows with this status',
 	},
 	{
-		displayName: 'Input',
+		displayName: 'Request Details',
+		name: 'fields',
+		type: 'resourceMapper',
+		noDataExpression: true,
+		default: { mappingMode: 'defineBelow', value: null },
+		displayOptions: show('workflow', ['run']),
+		description: 'The fields this workflow reads, filled from your data',
+		typeOptions: {
+			loadOptionsDependsOn: ['workflowId.value'],
+			resourceMapper: {
+				resourceMapperMethod: 'getInputFields',
+				mode: 'add',
+				valuesLabel: 'Request Details',
+				fieldWords: { singular: 'field', plural: 'fields' },
+				addAllFields: true,
+				supportAutoMap: true,
+				allowEmptyValues: true,
+				noFieldsError:
+					"This workflow doesn't read any fields. Use Additional Input to send data anyway.",
+			},
+		},
+	},
+	{
+		displayName: 'Additional Input (JSON)',
 		name: 'input',
 		type: 'json',
 		displayOptions: show('workflow', ['run']),
 		default: '{}',
 		description:
-			'What the steps read as {{trigger.body.field}}. Use Get Input Fields to see what the workflow expects. Up to 64 KB.',
+			'Anything else to send with the run. Request Details win when both set a field. Up to 64 KB with the details.',
 	},
 	...waitFields('workflow', 'run'),
+	{
+		displayName: 'Answer Output Names or IDs',
+		name: 'answerOutputs',
+		type: 'multiOptions',
+		noDataExpression: true,
+		displayOptions: {
+			show: { resource: ['workflow'], operation: ['run'], waitMode: ['auto', 'callback', 'poll'] },
+		},
+		typeOptions: { loadOptionsMethod: 'getAnswers', loadOptionsDependsOn: ['workflowId.value'] },
+		default: [],
+		description:
+			'Choose from the list, or specify IDs using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+		hint: 'Each answer picked here gets its own output. Other answers, no answer in time and failed runs go to Other. Leave empty for one output.',
+	},
 
 	// Run
 	{

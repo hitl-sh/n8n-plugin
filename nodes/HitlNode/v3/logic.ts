@@ -159,3 +159,117 @@ export async function pollUntil(
 		await options.sleep(failures > 0 ? retryDelay : 1000);
 	}
 }
+
+/** The HITL portal for the credential's environment, for links from n8n. */
+export const portalUrlFor = (environment: unknown): string =>
+	environment === 'development' ? 'https://dev.my.hitl.sh' : 'https://my.hitl.sh';
+
+/** One answer a workflow's review step can give, as an n8n output. */
+export interface Answer {
+	value: string;
+	label: string;
+}
+
+const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
+
+/**
+ * The answers a workflow's review steps offer: the options of single and multi select steps, and the two
+ * labels of a yes or no step. Steps that take free text, a number or a rating have no fixed answers.
+ */
+export function workflowAnswers(nodes: unknown): Answer[] {
+	const answers: Answer[] = [];
+	const add = (value: string, label: string) => {
+		if (value !== '' && !answers.some((a) => a.value === value)) answers.push({ value, label: label || value });
+	};
+	for (const node of Array.isArray(nodes) ? (nodes as IDataObject[]) : []) {
+		if (node?.type !== 'review') continue;
+		const data = (node.data ?? {}) as IDataObject;
+		const config = (data.responseConfig ?? data.response_config ?? {}) as IDataObject;
+		const type = text(data.responseType ?? data.response_type);
+		if (type === 'boolean') {
+			add('true', text(config.true_label ?? config.trueLabel) || 'Yes');
+			add('false', text(config.false_label ?? config.falseLabel) || 'No');
+		} else if (type === 'single_select' || type === 'multi_select') {
+			for (const option of Array.isArray(config.options) ? config.options : []) {
+				if (typeof option === 'string') add(option.trim(), option.trim());
+				else if (option && typeof option === 'object') {
+					const o = option as IDataObject;
+					add(text(o.value) || text(o.label), text(o.label));
+				}
+			}
+		}
+	}
+	return answers;
+}
+
+/** The answer a decision holds, as text: "approve", "true", "42". Undefined when there is none. */
+export function answerValue(decision: unknown): string | undefined {
+	if (typeof decision === 'string') return decision;
+	if (typeof decision === 'boolean' || typeof decision === 'number') return String(decision);
+	if (!decision || typeof decision !== 'object' || Array.isArray(decision)) return undefined;
+	const d = decision as IDataObject;
+	for (const key of ['selected_value', 'value', 'boolean', 'number', 'rating']) {
+		if (d[key] !== undefined && d[key] !== null && typeof d[key] !== 'object') return String(d[key]);
+	}
+	const many = d.selected_values;
+	if (Array.isArray(many) && many.length > 0) return String(many[0]);
+	return undefined;
+}
+
+/** Answer outputs are stored as JSON so the output names survive without asking the API. */
+export const encodeAnswer = (answer: Answer): string => JSON.stringify({ v: answer.value, l: answer.label });
+
+export function decodeAnswer(raw: unknown): Answer | undefined {
+	if (typeof raw !== 'string') return undefined;
+	try {
+		const parsed = JSON.parse(raw) as { v?: unknown; l?: unknown };
+		if (typeof parsed.v === 'string') return { value: parsed.v, label: typeof parsed.l === 'string' ? parsed.l : parsed.v };
+	} catch {
+		// a plain value typed by hand
+	}
+	return raw === '' ? undefined : { value: raw, label: raw };
+}
+
+/**
+ * Which output a finished run goes to: the picked answer it matched, otherwise the last one (Other),
+ * which also takes runs that failed, timed out or were still waiting when the node stopped waiting.
+ */
+export function outputFor(run: IDataObject, answers: Answer[]): number {
+	const other = answers.length;
+	if (run.finished !== true || run.status !== 'completed') return other;
+	const value = answerValue(run.result);
+	const index = answers.findIndex((a) => a.value === value);
+	return index === -1 ? other : index;
+}
+
+/** A field path such as customer_email or customer.email as a label: "Customer email", "Customer › Email". */
+export function fieldLabel(path: string): string {
+	return path
+		.split('.')
+		.map((part) => {
+			const words = part
+				.replace(/[_-]+/g, ' ')
+				.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+				.trim()
+				.toLowerCase();
+			return words.charAt(0).toUpperCase() + words.slice(1);
+		})
+		.join(' › ');
+}
+
+/** Turns {"customer.email": "a@b.co"} into {customer: {email: "a@b.co"}}. Values already nested are kept. */
+export function nestInput(flat: IDataObject): IDataObject {
+	const out: IDataObject = {};
+	for (const [path, value] of Object.entries(flat)) {
+		const parts = path.split('.').filter(Boolean);
+		if (parts.length === 0) continue;
+		let at = out;
+		for (const part of parts.slice(0, -1)) {
+			const next = at[part];
+			if (!next || typeof next !== 'object' || Array.isArray(next)) at[part] = {};
+			at = at[part] as IDataObject;
+		}
+		at[parts[parts.length - 1]] = value;
+	}
+	return out;
+}

@@ -10,7 +10,11 @@ import {
 	type ILoadOptionsFunctions,
 	type INodeExecutionData,
 	type INodeListSearchResult,
+	type INodeOutputConfiguration,
+	type INodeParameters,
+	type INodePropertyOptions,
 	type INodeType,
+	type ResourceMapperFields,
 	type INodeTypeBaseDescription,
 	type INodeTypeDescription,
 	type IWebhookFunctions,
@@ -29,6 +33,14 @@ import {
 	unwrap,
 	type WaitMode,
 	apiReason,
+	decodeAnswer,
+	encodeAnswer,
+	fieldLabel,
+	nestInput,
+	outputFor,
+	portalUrlFor,
+	workflowAnswers,
+	type Answer,
 } from './logic';
 import { properties } from './properties';
 
@@ -174,9 +186,77 @@ async function startAndWait(
 	return { paused: true };
 }
 
+/** The run's input: Additional Input, with the Request Details on top. Empty details are left out. */
+function workflowInput(context: IExecuteFunctions, item: number): IDataObject {
+	const extra = parseObject(
+		context.getNodeParameter('input', item, '{}'),
+		'Additional Input',
+		operationFailer(context, item),
+	);
+	const mode = context.getNodeParameter('fields.mappingMode', item, 'defineBelow') as string;
+	const mapped =
+		mode === 'autoMapInputData'
+			? context.getInputData()[item].json
+			: ((context.getNodeParameter('fields.value', item, {}) ?? {}) as IDataObject);
+	const filled: IDataObject = {};
+	for (const [key, value] of Object.entries(mapped)) {
+		if (value !== null && value !== undefined && value !== '') filled[key] = value;
+	}
+	return { ...extra, ...nestInput(filled) };
+}
+
+/** The answers that have their own output, in output order. Empty means one output. */
+function pickedAnswers(context: IExecuteFunctions | IWebhookFunctions): Answer[] {
+	const parameters = context.getNode().parameters;
+	if (configuredOutputs(parameters).length === 1) return [];
+	return ((parameters.answerOutputs ?? []) as string[])
+		.map(decodeAnswer)
+		.filter((answer): answer is Answer => answer !== undefined);
+}
+
+/**
+ * The node's outputs. n8n evaluates this from the parameters, as text, so it uses nothing from outside
+ * itself. Parameters left at their default can be missing.
+ */
+export const configuredOutputs = (parameters: INodeParameters): INodeOutputConfiguration[] => {
+	const resource = parameters.resource === undefined ? 'workflow' : parameters.resource;
+	const operation = parameters.operation === undefined ? 'run' : parameters.operation;
+	const waitMode = parameters.waitMode === undefined ? 'auto' : parameters.waitMode;
+	const picked = parameters.answerOutputs;
+	if (
+		resource !== 'workflow' ||
+		operation !== 'run' ||
+		waitMode === 'none' ||
+		!Array.isArray(picked) ||
+		picked.length === 0
+	) {
+		return [{ type: 'main' }];
+	}
+	const outputs: INodeOutputConfiguration[] = picked.map((raw) => {
+		let label = String(raw);
+		try {
+			const parsed = JSON.parse(String(raw));
+			if (parsed && parsed.l) label = String(parsed.l);
+		} catch {
+			// a value typed by hand
+		}
+		return { type: 'main', displayName: label };
+	});
+	outputs.push({ type: 'main', displayName: 'Other' });
+	return outputs;
+};
+
+/** Puts each answer on its output. */
+function route(rows: INodeExecutionData[], answers: Answer[]): INodeExecutionData[][] {
+	const outputs: INodeExecutionData[][] = Array.from({ length: answers.length + 1 }, () => []);
+	if (answers.length === 0) return [rows];
+	for (const row of rows) outputs[outputFor(row.json, answers)].push(row);
+	return outputs;
+}
+
 function runWorkflow(context: IExecuteFunctions, item: number): Promise<Waited> {
 	const id = checkId(context, locator(context, 'workflowId', item), 'Workflow', item);
-	const input = parseObject(context.getNodeParameter('input', item, '{}'), 'Input', operationFailer(context, item));
+	const input = workflowInput(context, item);
 	return startAndWait(
 		context,
 		item,
@@ -314,6 +394,13 @@ async function runOperation(
 	}
 }
 
+/** The workflow picked in the node, while the editor loads its fields and answers. */
+function selectedWorkflow(context: ILoadOptionsFunctions): string | undefined {
+	const raw = context.getNodeParameter('workflowId', '', { extractValue: true });
+	const id = typeof raw === 'string' ? raw.trim() : '';
+	return OBJECT_ID.test(id) ? id : undefined;
+}
+
 const isWaited = (value: unknown): value is Waited =>
 	typeof value === 'object' && value !== null && ('paused' in value || 'value' in value);
 
@@ -329,7 +416,7 @@ export class HitlNodeV3 implements INodeType {
 			defaults: { name: 'HITL' },
 			usableAsTool: true,
 			inputs: [NodeConnectionTypes.Main],
-			outputs: [NodeConnectionTypes.Main],
+			outputs: `={{(${configuredOutputs})($parameter)}}`,
 			credentials: [{ name: CREDENTIAL, required: true }],
 			webhooks: [
 				{
@@ -352,12 +439,19 @@ export class HitlNodeV3 implements INodeType {
 				this: ILoadOptionsFunctions,
 				filter?: string,
 			): Promise<INodeListSearchResult> {
+				const credentials = await this.getCredentials(CREDENTIAL);
+				const portal = portalUrlFor(credentials.environment);
 				const data = await api.call(this, 'GET', '/api/workflows', { qs: { status: 'active' } });
 				const wanted = (filter ?? '').toLowerCase();
 				return {
 					results: ((data.workflows ?? []) as IDataObject[])
 						.filter((w) => String(w.name).toLowerCase().includes(wanted))
-						.map((w) => ({ name: String(w.name), value: String(w.id) })),
+						.map((w) => ({
+							name: String(w.name),
+							value: String(w.id),
+							description: typeof w.description === 'string' && w.description ? w.description : undefined,
+							url: `${portal}/workflows/${String(w.id)}`,
+						})),
 				};
 			},
 			async searchLoops(
@@ -373,6 +467,39 @@ export class HitlNodeV3 implements INodeType {
 				};
 			},
 		},
+		loadOptions: {
+			async getAnswers(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				const id = selectedWorkflow(this);
+				if (!id) return [];
+				const workflow = await api.call(this, 'GET', `/api/workflows/${id}`);
+				return workflowAnswers(workflow.nodes).map((answer) => ({
+					name: answer.label,
+					value: encodeAnswer(answer),
+					description: answer.label === answer.value ? undefined : `Answer value: ${answer.value}`,
+				}));
+			},
+		},
+		resourceMapping: {
+			async getInputFields(this: ILoadOptionsFunctions): Promise<ResourceMapperFields> {
+				const id = selectedWorkflow(this);
+				if (!id) return { fields: [], emptyFieldsNotice: 'Pick a workflow first' };
+				const data = await api.call(this, 'GET', `/api/workflows/${id}/input`);
+				const fields = (Array.isArray(data.fields) ? data.fields : []) as IDataObject[];
+				return {
+					fields: fields
+						.map((field) => String(field.path ?? ''))
+						.filter(Boolean)
+						.map((path) => ({
+							id: path,
+							displayName: fieldLabel(path),
+							required: false,
+							defaultMatch: false,
+							canBeUsedToMatch: false,
+							display: true,
+						})),
+				};
+			},
+		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -380,11 +507,12 @@ export class HitlNodeV3 implements INodeType {
 		const out: INodeExecutionData[] = [];
 		const resource = this.getNodeParameter('resource', 0) as string;
 		const operation = this.getNodeParameter('operation', 0) as string;
+		const answers = pickedAnswers(this);
 		for (let item = 0; item < items.length; item++) {
 			try {
 				const result = await runOperation(this, resource, operation, item);
 				if (isWaited(result)) {
-					if (result.paused) return [items];
+					if (result.paused) return route(items, []).concat(answers.map(() => []));
 					out.push({ json: result.value ?? {}, pairedItem: { item } });
 				} else {
 					const rows = Array.isArray(result) ? result : [result];
@@ -401,7 +529,7 @@ export class HitlNodeV3 implements INodeType {
 				throw nodeError(this, error, item);
 			}
 		}
-		return [out];
+		return route(out, answers);
 	}
 
 	/**
@@ -416,6 +544,6 @@ export class HitlNodeV3 implements INodeType {
 			resource === 'request' ? await readRequest(this, id) : await readRun(this, id, 0);
 		const finished = resource === 'request' ? requestFinished(answer) : runFinished(answer);
 		if (!finished) return { webhookResponse: { received: true, finished: false } };
-		return { workflowData: [this.helpers.returnJsonArray(answer)] };
+		return { workflowData: route(this.helpers.returnJsonArray(answer), pickedAnswers(this)) };
 	}
 }
