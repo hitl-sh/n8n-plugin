@@ -413,7 +413,7 @@ export class HitlNodeV3 implements INodeType {
 		this.description = {
 			...baseDescription,
 			version: 3,
-			icon: 'file:hitl.svg',
+			icon: { light: 'file:hitl.svg', dark: 'file:hitl.dark.svg' },
 			subtitle: '={{$parameter["operation"] + ": " + $parameter["resource"]}}',
 			defaults: { name: 'HITL' },
 			usableAsTool: true,

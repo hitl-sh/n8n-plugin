@@ -13,7 +13,7 @@ export class HitlNode extends VersionedNodeType {
 		const baseDescription: INodeTypeBaseDescription = {
 			displayName: 'Human Approvals - HITL Platform',
 			name: 'hitlNode',
-			icon: 'file:hitl.svg',
+			icon: { light: 'file:hitl.svg', dark: 'file:hitl.dark.svg' },
 			group: ['transform'],
 			description: 'Run HITL workflows and ask people for approvals, then continue with their answer',
 			defaultVersion: 3,

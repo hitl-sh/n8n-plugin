@@ -39,7 +39,7 @@ export class HitlNodeV1 implements INodeType {
 		this.description = {
 		...baseDescription,
 		version: 1,
-		icon: 'file:hitl.svg',
+		icon: { light: 'file:hitl.svg', dark: 'file:hitl.dark.svg' },
 		description: 'Create human-in-the-loop decision requests and wait for human responses',
 		defaults: {
 			name: 'Human Approvals - HITL Platform',
