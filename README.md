@@ -6,7 +6,7 @@
 phone, in the web inbox or in Telegram, and your n8n workflow continues on their answer.
 
 <p align="center">
-  <img src="https://docs.hitl.sh/images/readme/n8n/how-it-works.png" alt="n8n runs a HITL workflow, a person decides in the HITL app, n8n follows the approve, reject or Other output" width="900">
+  <img src="https://docs.hitl.sh/images/readme/n8n/how-it-works.png?v=2" alt="n8n runs a HITL workflow, a person decides in the HITL app, n8n follows the approve, reject or Other output" width="900">
 </p>
 
 [Install](#install) · [Connect](#connect-your-hitl-account) · [Use it](#use-it) · [Waiting](#waiting-for-the-answer) · [Operations](#operations) · [Compatibility](#compatibility)

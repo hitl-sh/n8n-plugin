@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- README: the how-it-works image shows the phone at its real proportions. No code changes.
+
 ## 0.4.2
 
 - README: how it works, install, credential and node screenshots; shorter text. No code changes.
