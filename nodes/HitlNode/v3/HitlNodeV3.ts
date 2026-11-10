@@ -28,7 +28,6 @@ import {
 	parseObject,
 	pollUntil,
 	requestError,
-	requestFinished,
 	runFinished,
 	unwrap,
 	type WaitMode,
@@ -76,11 +75,6 @@ const readRun = (context: ApiContext, id: string, waitSeconds: number) =>
 		qs: { wait: waitSeconds },
 		timeout: (waitSeconds + 15) * 1000,
 	});
-
-const readRequest = async (context: ApiContext, id: string) => {
-	const data = await api.call(context, 'GET', `/api/requests/${id}`);
-	return (data.request ?? data) as IDataObject;
-};
 
 function checkId(context: IExecuteFunctions, id: string, what: string, item: number): string {
 	const value = id.trim();
@@ -281,72 +275,6 @@ function runWorkflow(context: IExecuteFunctions, item: number): Promise<Waited> 
 	);
 }
 
-function requestBody(context: IExecuteFunctions, item: number): IDataObject {
-	const responseType = context.getNodeParameter('responseType', item) as string;
-	const fallback = (context.getNodeParameter('defaultResponse', item) as string).trim();
-	const choices =
-		responseType === 'single_select' || responseType === 'multi_select'
-			? (context.getNodeParameter('responseOptions', item) as string)
-					.split(',')
-					.map((choice) => choice.trim())
-					.filter(Boolean)
-			: [];
-	const responseConfig: IDataObject = {
-		single_select: { options: choices },
-		multi_select: { options: choices, max_selections: choices.length },
-		rating: { scale_min: 1, scale_max: 5, scale_step: 1 },
-		number: { min_value: 0, max_value: 1000000, decimal_places: 2, allow_negative: true },
-		text: { min_length: 0, max_length: 5000 },
-		editable_text: { min_length: 0, max_length: 5000 },
-	}[responseType] ?? {};
-	const defaultResponse: unknown =
-		responseType === 'boolean'
-			? /^(true|yes|1)$/i.test(fallback)
-			: responseType === 'number' || responseType === 'rating'
-				? Number(fallback)
-				: responseType === 'multi_select'
-					? fallback.split(',').map((choice) => choice.trim()).filter(Boolean)
-					: fallback;
-	return {
-		processing_type: 'time-sensitive',
-		type: 'markdown',
-		priority: context.getNodeParameter('priority', item),
-		request_text: context.getNodeParameter('requestText', item),
-		response_type: responseType,
-		response_config: responseConfig,
-		default_response: defaultResponse as IDataObject,
-		timeout_seconds: context.getNodeParameter('timeoutSeconds', item),
-		platform: 'n8n',
-		...parseObject(
-			context.getNodeParameter('additional', item, '{}'),
-			'Additional Fields',
-			operationFailer(context, item),
-		),
-	};
-}
-
-function createRequest(context: IExecuteFunctions, item: number): Promise<Waited> {
-	const loopId = checkId(context, locator(context, 'loopId', item), 'Loop', item);
-	const body = requestBody(context, item);
-	return startAndWait(
-		context,
-		item,
-		async (callbackUrl) =>
-			await api.call(context, 'POST', `/api/loops/${loopId}/requests`, {
-				body: { ...body, ...(callbackUrl ? { callback_url: callbackUrl } : {}) },
-			}),
-		async (started, maxMs) => {
-			const { value, finished } = await pollUntil(
-				() => readRequest(context, String(started.request_id)),
-				requestFinished,
-				{ maxMs, sleep: (ms) => sleep(Math.max(ms, 5000)), fail: failer(context, item) },
-			);
-			return finished ? value : { ...value, stopped_waiting: true };
-		},
-		undefined,
-	);
-}
-
 async function runOperation(
 	context: IExecuteFunctions,
 	resource: string,
@@ -382,13 +310,6 @@ async function runOperation(
 			});
 			return (data.executions ?? []) as IDataObject[];
 		}
-		case 'request.create':
-			return await createRequest(context, item);
-		case 'request.get':
-			return await readRequest(
-				context,
-				checkId(context, context.getNodeParameter('requestId', item) as string, 'Request', item),
-			);
 		default:
 			throw new NodeOperationError(context.getNode(), `Unknown operation ${resource}.${operation}`, {
 				itemIndex: item,
@@ -454,18 +375,6 @@ export class HitlNodeV3 implements INodeType {
 							description: typeof w.description === 'string' && w.description ? w.description : undefined,
 							url: `${portal}/workflows/${String(w.id)}`,
 						})),
-				};
-			},
-			async searchLoops(
-				this: ILoadOptionsFunctions,
-				filter?: string,
-			): Promise<INodeListSearchResult> {
-				const data = await api.call(this, 'GET', '/api/loops');
-				const wanted = (filter ?? '').toLowerCase();
-				return {
-					results: ((data.loops ?? []) as IDataObject[])
-						.filter((l) => String(l.name).toLowerCase().includes(wanted))
-						.map((l) => ({ name: String(l.name), value: String(l.id) })),
 				};
 			},
 		},
@@ -539,13 +448,10 @@ export class HitlNodeV3 implements INodeType {
 	 * answer is read from the API with the node's own key, so a stray POST cannot fake a decision.
 	 */
 	async webhook(this: IWebhookFunctions): Promise<IWebhookResponseData> {
-		const resource = this.getNodeParameter('resource') as string;
-		const id = callbackId(resource, this.getBodyData());
+		const id = callbackId(this.getBodyData());
 		if (!id) return { webhookResponse: { received: false } };
-		const answer =
-			resource === 'request' ? await readRequest(this, id) : await readRun(this, id, 0);
-		const finished = resource === 'request' ? requestFinished(answer) : runFinished(answer);
-		if (!finished) return { webhookResponse: { received: true, finished: false } };
+		const answer = await readRun(this, id, 0);
+		if (!runFinished(answer)) return { webhookResponse: { received: true, finished: false } };
 		return { workflowData: route(this.helpers.returnJsonArray(answer), pickedAnswers(this)) };
 	}
 }

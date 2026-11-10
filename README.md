@@ -24,8 +24,6 @@ API** credential. Leave Environment on Production. The key is only ever sent to 
 | Workflow | Get Many, Get | Your workflows and their steps |
 | Workflow | Get Input Fields | Which input fields a workflow's steps read |
 | Run | Get, Get Many | One run, or a workflow's runs |
-| Request | Create | Ask the people in a loop and optionally wait for the answer |
-| Request | Get | One request and its answer |
 
 The node also works as a tool for the AI Agent node, where it polls for the answer.
 
@@ -57,7 +55,8 @@ to the resume address cannot supply a decision.
 
 Tested with n8n 2.x.
 
-Workflows saved with version 0.1.6 of this package keep using version 1 of the node and work as before.
+Workflows saved with version 0.1.6 of this package keep using version 1 of the node and work as before,
+including its loop requests. New nodes run HITL workflows only: loops and loop requests are being retired.
 
 ## Resources
 

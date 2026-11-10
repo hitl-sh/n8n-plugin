@@ -81,16 +81,11 @@ export const unwrap = (answer: unknown): IDataObject => {
 
 export const runFinished = (run: IDataObject): boolean => run.finished === true;
 
-const REQUEST_ENDED = new Set(['completed', 'timeout', 'cancelled']);
-export const requestFinished = (request: IDataObject): boolean =>
-	REQUEST_ENDED.has(String(request.status));
-
 const OBJECT_ID = /^[0-9a-f]{24}$/;
 
-/** The id a callback names: a run's for a workflow, the request's otherwise. Undefined if there is none. */
-export function callbackId(resource: string, body: IDataObject): string | undefined {
-	const raw =
-		resource === 'request' ? body.request_id : ((body.execution ?? {}) as IDataObject).id;
+/** The id of the run a callback names. Undefined if there is none. */
+export function callbackId(body: IDataObject): string | undefined {
+	const raw = ((body.execution ?? {}) as IDataObject).id;
 	return typeof raw === 'string' && OBJECT_ID.test(raw) ? raw : undefined;
 }
 

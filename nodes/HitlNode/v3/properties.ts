@@ -89,7 +89,6 @@ export const properties: INodeProperties[] = [
 		options: [
 			{ name: 'Workflow', value: 'workflow' },
 			{ name: 'Run', value: 'run' },
-			{ name: 'Request', value: 'request' },
 		],
 		default: 'workflow',
 	},
@@ -144,29 +143,6 @@ export const properties: INodeProperties[] = [
 		],
 		default: 'get',
 	},
-	{
-		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
-		displayOptions: { show: { resource: ['request'] } },
-		options: [
-			{
-				name: 'Create',
-				value: 'create',
-				action: 'Create a request',
-				description: 'Ask the people in a loop and optionally wait for the answer',
-			},
-			{
-				name: 'Get',
-				value: 'get',
-				action: 'Get a request',
-				description: 'Get one request and its answer',
-			},
-		],
-		default: 'create',
-	},
-
 	// Workflow
 	workflowLocator(['get', 'getInput', 'run']),
 	{
@@ -266,119 +242,5 @@ export const properties: INodeProperties[] = [
 		displayOptions: show('run', ['getAll']),
 		default: 50,
 		description: 'Max number of results to return',
-	},
-
-	// Request
-	{
-		displayName: 'Loop',
-		name: 'loopId',
-		type: 'resourceLocator',
-		default: { mode: 'list', value: '' },
-		required: true,
-		displayOptions: show('request', ['create']),
-		description: 'The group of people to ask',
-		modes: [
-			{
-				displayName: 'From List',
-				name: 'list',
-				type: 'list',
-				placeholder: 'Select a loop...',
-				typeOptions: { searchListMethod: 'searchLoops', searchable: true },
-			},
-			{ displayName: 'ID', name: 'id', type: 'string', placeholder: '6726aaaaaaaaaaaaaaaaaaaa' },
-		],
-	},
-	{
-		displayName: 'Request Text',
-		name: 'requestText',
-		type: 'string',
-		typeOptions: { rows: 4 },
-		required: true,
-		displayOptions: show('request', ['create']),
-		default: '',
-		description: 'What to ask. Markdown works. Up to 2000 characters.',
-	},
-	{
-		displayName: 'Response Type',
-		name: 'responseType',
-		type: 'options',
-		displayOptions: show('request', ['create']),
-		options: [
-			{ name: 'Boolean', value: 'boolean', description: 'Yes or no' },
-			{ name: 'Editable Text', value: 'editable_text', description: 'Edit a draft' },
-			{ name: 'Multi Select', value: 'multi_select', description: 'Several of the options' },
-			{ name: 'Number', value: 'number', description: 'A number' },
-			{ name: 'Rating', value: 'rating', description: 'A score' },
-			{ name: 'Single Select', value: 'single_select', description: 'One of the options' },
-			{ name: 'Text', value: 'text', description: 'Free text' },
-		],
-		default: 'boolean',
-	},
-	{
-		displayName: 'Options',
-		name: 'responseOptions',
-		type: 'string',
-		required: true,
-		displayOptions: {
-			show: {
-				resource: ['request'],
-				operation: ['create'],
-				responseType: ['single_select', 'multi_select'],
-			},
-		},
-		default: '',
-		placeholder: 'Approve, Reject, Escalate',
-		description: 'The choices, separated by commas',
-	},
-	{
-		displayName: 'Default Response',
-		name: 'defaultResponse',
-		type: 'string',
-		required: true,
-		displayOptions: show('request', ['create']),
-		default: 'false',
-		description:
-			'The answer to use if nobody responds in time: true or false, one of the options, a number, or text. For multi select, separate with commas.',
-	},
-	{
-		displayName: 'Priority',
-		name: 'priority',
-		type: 'options',
-		displayOptions: show('request', ['create']),
-		options: [
-			{ name: 'Critical', value: 'critical' },
-			{ name: 'High', value: 'high' },
-			{ name: 'Low', value: 'low' },
-			{ name: 'Medium', value: 'medium' },
-		],
-		default: 'medium',
-	},
-	{
-		displayName: 'Timeout (Seconds)',
-		name: 'timeoutSeconds',
-		type: 'number',
-		typeOptions: { minValue: 60, maxValue: 86400 },
-		displayOptions: show('request', ['create']),
-		default: 3600,
-		description: 'How long people have to answer, 60 to 86400',
-	},
-	{
-		displayName: 'Additional Fields (JSON)',
-		name: 'additional',
-		type: 'json',
-		displayOptions: show('request', ['create']),
-		default: '{}',
-		description:
-			'Any other request field, such as context, image_url or response_config. These win over the fields above. See docs.hitl.sh.',
-	},
-	...waitFields('request', 'create'),
-	{
-		displayName: 'Request ID',
-		name: 'requestId',
-		type: 'string',
-		required: true,
-		displayOptions: show('request', ['get']),
-		default: '',
-		description: 'The ID the Create operation answered with',
 	},
 ];

@@ -28,6 +28,14 @@ describe('versions', () => {
 		expect(v3.credentials?.[0]?.name).toBe('hitlCredentialsApi');
 		expect(new Set(v3.properties.map((p) => p.type)).has('resourceLocator')).toBe(true);
 	});
+	test('version 3 runs workflows only: no loops or requests', () => {
+		const v3 = node.getNodeType(3).description;
+		const resource = v3.properties.find((p) => p.name === 'resource');
+		expect(resource?.options?.map((o) => (o as { value: string }).value)).toEqual(['workflow', 'run']);
+		const names = v3.properties.map((p) => p.name);
+		for (const name of ['loopId', 'requestId', 'requestText', 'responseType']) expect(names).not.toContain(name);
+		expect(Object.keys(new HitlNode().getNodeType(3).methods?.listSearch ?? {})).toEqual(['searchWorkflows']);
+	});
 });
 
 describe('credential', () => {

@@ -6,7 +6,6 @@ import {
 	isReachableUrl,
 	parseObject,
 	pollUntil,
-	requestFinished,
 	runFinished,
 	unwrap,
 	apiReason,
@@ -89,16 +88,13 @@ describe('answers', () => {
 	test('finished', () => {
 		expect(runFinished({ finished: true })).toBe(true);
 		expect(runFinished({ status: 'pending_review', finished: false })).toBe(false);
-		for (const status of ['completed', 'timeout', 'cancelled']) expect(requestFinished({ status })).toBe(true);
-		for (const status of ['pending', 'claimed', 'held']) expect(requestFinished({ status })).toBe(false);
 	});
 	test('callbackId takes only well formed ids', () => {
 		const id = '6727aaaaaaaaaaaaaaaaaaaa';
-		expect(callbackId('workflow', { execution: { id } })).toBe(id);
-		expect(callbackId('request', { request_id: id })).toBe(id);
-		expect(callbackId('workflow', { request_id: id })).toBeUndefined();
-		expect(callbackId('workflow', { execution: { id: '../../admin' } })).toBeUndefined();
-		expect(callbackId('request', {})).toBeUndefined();
+		expect(callbackId({ execution: { id } })).toBe(id);
+		expect(callbackId({ request_id: id })).toBeUndefined();
+		expect(callbackId({ execution: { id: '../../admin' } })).toBeUndefined();
+		expect(callbackId({})).toBeUndefined();
 	});
 });
 
