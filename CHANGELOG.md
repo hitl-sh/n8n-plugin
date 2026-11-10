@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- README: how it works, install, credential and node screenshots; shorter text. No code changes.
+
 ## 0.4.1
 
 - The credential no longer has an Environment option: the node always uses the production API (`api.hitl.sh`)
