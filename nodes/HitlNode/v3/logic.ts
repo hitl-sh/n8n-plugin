@@ -1,8 +1,9 @@
 import type { IDataObject } from 'n8n-workflow';
 
 /** The two API hosts the key may go to. Nothing the user types can change the host. */
-export const baseUrlFor = (environment: unknown): string =>
-	environment === 'development' ? 'https://dev.api.hitl.sh/v1' : 'https://api.hitl.sh/v1';
+/** Always the production API. Credentials saved before 0.4.1 may still carry an `environment` field; it is ignored. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const baseUrlFor = (_environment?: unknown): string => 'https://api.hitl.sh/v1';
 
 export type WaitMode = 'auto' | 'callback' | 'poll' | 'none';
 export type Wait = 'callback' | 'poll' | 'none';
@@ -155,9 +156,9 @@ export async function pollUntil(
 	}
 }
 
-/** The HITL portal for the credential's environment, for links from n8n. */
-export const portalUrlFor = (environment: unknown): string =>
-	environment === 'development' ? 'https://dev.my.hitl.sh' : 'https://my.hitl.sh';
+/** The HITL portal, for links from n8n. Always production. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const portalUrlFor = (_environment?: unknown): string => 'https://my.hitl.sh';
 
 /** One answer a workflow's review step can give, as an n8n output. */
 export interface Answer {

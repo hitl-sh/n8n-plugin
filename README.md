@@ -13,8 +13,7 @@ Follow the [community nodes guide](https://docs.n8n.io/integrations/community-no
 ## Credentials
 
 Create an API key under Settings at [my.hitl.sh](https://my.hitl.sh), and add it to a **HITL.sh Human Approval
-API** credential. Leave Environment on Production. The key is only ever sent to `api.hitl.sh`, or
-`dev.api.hitl.sh` if you choose Development.
+API** credential. The key is only ever sent to `api.hitl.sh`.
 
 ## Operations
 

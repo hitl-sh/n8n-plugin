@@ -19,9 +19,8 @@ const failMessage = (message: string): never => {
 };
 
 describe('baseUrlFor', () => {
-	test('only ever the two hosts', () => {
-		expect(baseUrlFor('development')).toBe('https://dev.api.hitl.sh/v1');
-		for (const other of ['production', undefined, 'https://evil.example', '']) {
+	test('always the production API, even for credentials saved with Development', () => {
+		for (const other of ['development', 'production', undefined, 'https://evil.example', '']) {
 			expect(baseUrlFor(other)).toBe('https://api.hitl.sh/v1');
 		}
 	});

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+
+- The credential no longer has an Environment option: the node always uses the production API (`api.hitl.sh`)
+  and links to `my.hitl.sh`. Credentials saved with Development now use production too.
+
 ## 0.4.0
 
 - Run a workflow: Request Details lists the fields the picked workflow reads, so you map your data into named

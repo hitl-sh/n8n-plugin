@@ -42,9 +42,10 @@ describe('credential', () => {
 	const credential = new HitlCredentialsApi();
 	test('has no free text host', () => {
 		const names = credential.properties.map((p) => p.name);
-		expect(names).toEqual(['apiKey', 'environment']);
-		const environment = credential.properties[1]!;
-		expect(environment.options?.map((o) => (o as { value: string }).value)).toEqual(['production', 'development']);
+		expect(names).toEqual(['apiKey']);
+	});
+	test('only ever talks to the production API', () => {
+		expect(credential.test.request.baseURL).toBe('https://api.hitl.sh');
 	});
 	test('keeps its name, so saved credentials still work', () => {
 		expect(credential.name).toBe('hitlCredentialsApi');

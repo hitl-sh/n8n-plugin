@@ -101,9 +101,8 @@ describe('fields', () => {
 			amount: 12,
 		});
 	});
-	test('portal links follow the environment', () => {
-		expect(portalUrlFor('development')).toBe('https://dev.my.hitl.sh');
-		expect(portalUrlFor('production')).toBe('https://my.hitl.sh');
+	test('portal links always go to production', () => {
+		for (const env of ['development', 'production', undefined]) expect(portalUrlFor(env)).toBe('https://my.hitl.sh');
 	});
 });
 
