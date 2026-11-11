@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.4
+
+- Codex nodeVersion set to 1.0 (n8n verification review).
+
 ## 0.4.3
 
 - README: the how-it-works image shows the phone at its real proportions. No code changes.

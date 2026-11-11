@@ -1,6 +1,6 @@
 {
 	"node": "n8n-nodes-human-in-the-loop.hitlNode",
-	"nodeVersion": "3.0",
+	"nodeVersion": "1.0",
 	"codexVersion": "1.0",
 	"categories": ["Communication", "Productivity"],
 	"resources": {

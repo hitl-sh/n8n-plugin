@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-human-in-the-loop",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Human approval for n8n: run HITL workflows and ask people for decisions, then continue with their answer",
   "keywords": [
     "n8n-community-node-package",
